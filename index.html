@@ -1,1 +1,186 @@
-placeholder
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ball Race</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: Arial, sans-serif;
+        }
+        
+        canvas {
+            display: block;
+        }
+        
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-size: 14px;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 10;
+        }
+        
+        button {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 10px 20px;
+            font-size: 16px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            z-index: 10;
+        }
+        
+        button:hover {
+            background: #764ba2;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        <p>Ball Count: <span id="ballCount">0</span></p>
+        <p>FPS: <span id="fps">0</span></p>
+    </div>
+    <button onclick="startRace()">Start Race</button>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/2.0.19/matter.min.js"></script>
+    
+    <script>
+        const Engine = Matter.Engine;
+        const World = Matter.World;
+        const Body = Matter.Body;
+        const Bodies = Matter.Bodies;
+        const Body = Matter.Body;
+        const Events = Matter.Events;
+        const Composite = Matter.Composite;
+        
+        const canvas = document.createElement('canvas');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        document.body.appendChild(canvas);
+        
+        const ctx = canvas.getContext('2d');
+        const engine = Engine.create();
+        
+        let balls = [];
+        let raceActive = false;
+        let frameCount = 0;
+        let lastTime = Date.now();
+        
+        // Create ground
+        const ground = Bodies.rectangle(canvas.width / 2, canvas.height - 10, canvas.width, 20, { isStatic: true });
+        World.add(engine.world, ground);
+        
+        // Create walls
+        const leftWall = Bodies.rectangle(10, canvas.height / 2, 20, canvas.height, { isStatic: true });
+        const rightWall = Bodies.rectangle(canvas.width - 10, canvas.height / 2, 20, canvas.height, { isStatic: true });
+        World.add(engine.world, [leftWall, rightWall]);
+        
+        function startRace() {
+            if (raceActive) return;
+            raceActive = true;
+            
+            // Clear existing balls
+            balls.forEach(ball => Composite.remove(engine.world, ball));
+            balls = [];
+            
+            // Create new balls
+            for (let i = 0; i < 10; i++) {
+                const x = Math.random() * (canvas.width - 100) + 50;
+                const y = 50 + i * 30;
+                const ball = Bodies.circle(x, y, 15, {
+                    friction: 0.5,
+                    restitution: 0.8,
+                    density: 0.001
+                });
+                balls.push(ball);
+                World.add(engine.world, ball);
+            }
+            
+            // Race logic
+            const raceInterval = setInterval(() => {
+                if (!raceActive) {
+                    clearInterval(raceInterval);
+                    return;
+                }
+                
+                // Add slight downward force to balls
+                balls.forEach(ball => {
+                    if (ball.position.y < 1595) {
+                        Body.applyForce(ball, ball.position, { x: 0, y: 0.001 });
+                    }
+                });
+                
+                // Remove balls that reach the bottom
+                for (let i = balls.length - 1; i >= 0; i--) {
+                    if (balls[i].position.y > 1595) {
+                        Composite.remove(engine.world, balls[i]);
+                        balls.splice(i, 1);
+                    }
+                }
+                
+                // End race when all balls are removed
+                if (balls.length === 0) {
+                    raceActive = false;
+                    clearInterval(raceInterval);
+                }
+                
+                // Update ball count display
+                document.getElementById('ballCount').textContent = balls.length;
+            }, 30);
+        }
+        
+        function animate() {
+            frameCount++;
+            const currentTime = Date.now();
+            if (currentTime - lastTime >= 1000) {
+                document.getElementById('fps').textContent = frameCount;
+                frameCount = 0;
+                lastTime = currentTime;
+            }
+            
+            Engine.update(engine);
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw ground
+            ctx.fillStyle = '#333';
+            ctx.fillRect(0, canvas.height - 10, canvas.width, 10);
+            
+            // Draw walls
+            ctx.fillRect(0, 0, 10, canvas.height);
+            ctx.fillRect(canvas.width - 10, 0, 10, canvas.height);
+            
+            // Draw balls
+            ctx.fillStyle = '#ff6b6b';
+            balls.forEach(ball => {
+                ctx.beginPath();
+                ctx.arc(ball.position.x, ball.position.y, 15, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            
+            requestAnimationFrame(animate);
+        }
+        
+        animate();
+        
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+    </script>
+</body>
+</html>

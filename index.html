@@ -2,20 +2,26 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>실시간 구슬 떨어뜨리기 (Marble Run)</title>
+    <title>실시간 구슬 레이스 (Marble Run)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.18.0/matter.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-database.js"></script>
     <style>
-        body { margin: 0; background: #1a1a1b; color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; overflow: hidden; }
-        #game-container { position: relative; width: 500px; height: 600px; background: #222; border: 5px solid #333; margin-top: 20px; }
-        .controls { background: #333; padding: 15px; border-radius: 10px; width: 470px; margin-top: 10px; z-index: 100; }
-        textarea { width: 100%; height: 50px; background: #111; color: white; border: none; padding: 5px; box-sizing: border-box; }
-        button { width: 100%; padding: 10px; margin-top: 5px; cursor: pointer; font-weight: bold; border: none; border-radius: 5px; }
-        #dropBtn { background: #5865F2; color: white; font-size: 1.2rem; }
+        body { margin: 0; background: #1a1a1b; color: white; font-family: 'Pretendard', sans-serif; display: flex; flex-direction: column; align-items: center; min-height: 100vh; overflow: hidden; }
+        #game-container { position: relative; width: 500px; height: 600px; background: #222; border: 5px solid #333; margin-top: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+        .controls { background: #333; padding: 15px; border-radius: 10px; width: 470px; margin-top: 10px; z-index: 100; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        textarea { width: 100%; height: 50px; background: #111; color: white; border: 1px solid #444; padding: 8px; box-sizing: border-box; border-radius: 5px; margin-bottom: 10px; }
+        
+        .option-group { display: flex; justify-content: space-around; background: #222; padding: 10px; border-radius: 5px; margin-bottom: 10px; }
+        .option-group label { cursor: pointer; display: flex; align-items: center; gap: 5px; font-weight: bold; }
+        
+        button { width: 100%; padding: 12px; margin-top: 5px; cursor: pointer; font-weight: bold; border: none; border-radius: 5px; transition: 0.2s; }
+        #dropBtn { background: #5865F2; color: white; font-size: 1.1rem; }
+        #dropBtn:hover { background: #4752c4; }
         #saveBtn { background: #3ba55c; color: white; }
-        #resultDisplay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 3rem; font-weight: bold; pointer-events: none; text-shadow: 0 0 20px gold; color: gold; display: none; z-index: 10; }
-        .room-info { font-size: 12px; color: #888; margin-top: 5px; }
+        
+        #resultDisplay { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); font-size: 3.5rem; font-weight: bold; pointer-events: none; text-shadow: 0 0 20px gold; color: gold; display: none; z-index: 10; text-align: center; width: 100%; }
+        .room-info { font-size: 12px; color: #888; margin-bottom: 5px; display: flex; justify-content: space-between; }
     </style>
 </head>
 <body>
@@ -25,10 +31,21 @@
     </div>
 
     <div class="controls">
-        <div class="room-info">방 ID: <span id="roomIdDisp"></span></div>
+        <div class="room-info">
+            <span>방 ID: <b id="roomIdDisp"></b></span>
+            <a href="#" onclick="copyLink()" style="color:#5865F2; text-decoration:none;">링크 복사</a>
+        </div>
+        
         <textarea id="nameInput" placeholder="이름을 쉼표로 구분 (예: 철수, 영희, 민수*2)"></textarea>
-        <button id="saveBtn" onclick="saveNames()">✅ 명단 저장</button>
-        <button id="dropBtn" onclick="triggerDrop()">🔮 구슬 떨어뜨리기!</button>
+        
+        <div class="option-group">
+            <span>🏆 당첨 조건:</span>
+            <label><input type="radio" name="winType" value="first" checked> 1등 (처음)</label>
+            <label><input type="radio" name="winType" value="last"> 꼴찌 (마지막)</label>
+        </div>
+
+        <button id="saveBtn" onclick="saveData()">✅ 설정 저장 (모두에게 적용)</button>
+        <button id="dropBtn" onclick="triggerDrop()">🔮 구슬 레이스 시작!</button>
     </div>
 
     <script>
@@ -47,10 +64,11 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
-        // 룸 ID 설정
         let roomId = new URLSearchParams(window.location.search).get('room') || Math.random().toString(36).substring(2, 7);
         if (!window.location.search.includes('room')) window.history.pushState({}, '', `?room=${roomId}`);
         document.getElementById('roomIdDisp').innerText = roomId;
+
+        function copyLink() { navigator.clipboard.writeText(window.location.href); alert("링크 복사 완료!"); }
 
         // Matter.js 설정
         const { Engine, Render, Runner, Bodies, Composite, Events } = Matter;
@@ -61,12 +79,12 @@
             options: { width: 500, height: 600, wireframes: false, background: '#222' }
         });
 
-        // 벽 및 장애물 생성
+        // 벽 생성
         const wallOptions = { isStatic: true, render: { fillStyle: '#444' } };
         Composite.add(engine.world, [
             Bodies.rectangle(250, 610, 500, 20, wallOptions), // 바닥
-            Bodies.rectangle(-10, 300, 20, 600, wallOptions), // 왼쪽 벽
-            Bodies.rectangle(510, 300, 20, 600, wallOptions)  // 오른쪽 벽
+            Bodies.rectangle(-10, 300, 20, 600, wallOptions), // 왼쪽
+            Bodies.rectangle(510, 300, 20, 600, wallOptions)  // 오른쪽
         ]);
 
         // 핀(장애물) 배치
@@ -74,23 +92,41 @@
             for (let col = 0; col < 9; col++) {
                 let x = col * 55 + (row % 2 === 0 ? 30 : 55);
                 let y = row * 70 + 100;
-                if (x < 480) {
-                    Composite.add(engine.world, Bodies.circle(x, y, 5, { isStatic: true, render: { fillStyle: '#777' } }));
-                }
+                if (x < 480) Composite.add(engine.world, Bodies.circle(x, y, 4, { isStatic: true, render: { fillStyle: '#666' } }));
             }
         }
 
         Render.run(render);
         Runner.run(Runner.create(), engine);
 
+        // 구슬 위에 이름 그리기 커스텀
+        Events.on(render, 'afterRender', () => {
+            const ctx = render.context;
+            ctx.font = "bold 12px Arial";
+            ctx.textAlign = "center";
+            ctx.fillStyle = "white";
+            
+            const bodies = Composite.allBodies(engine.world);
+            bodies.forEach(body => {
+                if (body.label && body.label !== 'Body') {
+                    ctx.fillText(body.label, body.position.x, body.position.y - 15);
+                }
+            });
+        });
+
         let names = [];
+        let winCondition = 'first'; 
         const resultDisplay = document.getElementById('resultDisplay');
 
-        // 데이터베이스 동기화
-        db.ref(`rooms/${roomId}/names`).on('value', snap => {
-            const val = snap.val() || "";
-            document.getElementById('nameInput').value = val;
-            parseNames(val);
+        // Firebase 동기화
+        db.ref(`rooms/${roomId}/config`).on('value', snap => {
+            const val = snap.val();
+            if (val) {
+                document.getElementById('nameInput').value = val.names || "";
+                winCondition = val.winType || 'first';
+                document.querySelector(`input[value="${winCondition}"]`).checked = true;
+                parseNames(val.names);
+            }
         });
 
         db.ref(`rooms/${roomId}/drop`).on('value', snap => {
@@ -104,14 +140,17 @@
                 if (part.includes('*')) {
                     let [nm, count] = part.split('*');
                     for (let i = 0; i < parseInt(count || 1); i++) names.push(nm.trim());
-                } else if (part) {
-                    names.push(part);
-                }
+                } else if (part) names.push(part);
             });
         }
 
-        function saveNames() {
-            db.ref(`rooms/${roomId}/names`).set(document.getElementById('nameInput').value);
+        function saveData() {
+            const config = {
+                names: document.getElementById('nameInput').value,
+                winType: document.querySelector('input[name="winType"]:checked').value
+            };
+            db.ref(`rooms/${roomId}/config`).set(config);
+            alert("설정이 저장되었습니다.");
         }
 
         function triggerDrop() {
@@ -120,38 +159,47 @@
 
         function dropMarbles() {
             resultDisplay.style.display = 'none';
-            // 기존 구슬 제거
             const existingBalls = Composite.allBodies(engine.world).filter(b => !b.isStatic);
             existingBalls.forEach(b => Composite.remove(engine.world, b));
 
+            let finishedCount = 0;
+            const totalBalls = names.length;
+
             names.forEach((name, i) => {
                 setTimeout(() => {
-                    const ball = Bodies.circle(250 + (Math.random() * 40 - 20), 30, 12, {
-                        restitution: 0.8,
-                        friction: 0.005,
-                        label: name,
+                    const ball = Bodies.circle(250 + (Math.random() * 60 - 30), 30, 12, {
+                        restitution: 0.6, friction: 0.01, label: name,
                         render: { fillStyle: `hsl(${Math.random() * 360}, 70%, 60%)` }
                     });
                     Composite.add(engine.world, ball);
-                }, i * 200); // 구슬이 하나씩 순차적으로 떨어짐
+                }, i * 150);
             });
+
+            // 도착 감지 로직
+            const checkFinish = setInterval(() => {
+                const balls = Composite.allBodies(engine.world).filter(b => !b.isStatic);
+                balls.forEach(ball => {
+                    if (ball.position.y > 570 && !ball.isFinished) {
+                        ball.isFinished = true;
+                        finishedCount++;
+
+                        // 당첨 조건 확인
+                        if (winCondition === 'first' && finishedCount === 1) {
+                            showWinner(ball.label);
+                        } else if (winCondition === 'last' && finishedCount === totalBalls) {
+                            showWinner(ball.label);
+                        }
+                    }
+                });
+                if (finishedCount === totalBalls) clearInterval(checkFinish);
+            }, 100);
         }
 
-        // 결과 감지 (바닥에 닿는 구슬 확인)
-        Events.on(engine, 'collisionStart', (event) => {
-            event.pairs.forEach(pair => {
-                // 바닥 벽의 y좌표 근처에 닿으면 당첨 처리
-                if (pair.bodyA.position.y > 580 || pair.bodyB.position.y > 580) {
-                    const ball = pair.bodyA.isStatic ? pair.bodyB : pair.bodyA;
-                    if (!ball.isStatic && resultDisplay.style.display === 'none') {
-                        resultDisplay.innerText = ball.label;
-                        resultDisplay.style.display = 'block';
-                        // 당첨 신호를 보낸 후 5초 뒤에 drop 신호 리셋
-                        setTimeout(() => db.ref(`rooms/${roomId}/drop`).set(null), 5000);
-                    }
-                }
-            });
-        });
+        function showWinner(name) {
+            resultDisplay.innerText = `🏆 당첨\n${name}`;
+            resultDisplay.style.display = 'block';
+            setTimeout(() => db.ref(`rooms/${roomId}/drop`).set(null), 5000);
+        }
     </script>
 </body>
 </html>

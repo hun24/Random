@@ -2,22 +2,20 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>실시간 구슬 레이스 - Wheel of Fortune 맵</title>
+    <title>실시간 구슬 레이스 - 회전판 맵</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.18.0/matter.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-database.js"></script>
     <style>
         body { margin: 0; background: #1a1a1b; color: white; font-family: 'Pretendard', sans-serif; display: flex; flex-direction: column; align-items: center; min-height: 100vh; overflow-y: auto; }
-        #game-container { position: relative; width: 400px; height: 1200px; background: #222; border: 5px solid #333; margin-top: 20px; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
-        .controls { background: #333; padding: 15px; border-radius: 10px; width: 370px; margin: 20px 0; z-index: 100; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        #game-container { position: relative; width: 400px; height: 1200px; background: #222; border: 5px solid #333; margin-top: 20px; }
+        .controls { background: #333; padding: 15px; border-radius: 10px; width: 370px; margin: 20px 0; z-index: 100; }
         textarea { width: 100%; height: 50px; background: #111; color: white; border: 1px solid #444; padding: 8px; box-sizing: border-box; border-radius: 5px; margin-bottom: 10px; resize: none; }
         .option-group { display: flex; justify-content: space-around; background: #222; padding: 10px; border-radius: 5px; margin-bottom: 10px; }
-        .option-group label { cursor: pointer; display: flex; align-items: center; gap: 5px; font-weight: bold; font-size: 13px; }
-        button { width: 100%; padding: 12px; margin-top: 5px; cursor: pointer; font-weight: bold; border: none; border-radius: 5px; transition: 0.2s; }
+        button { width: 100%; padding: 12px; margin-top: 5px; cursor: pointer; font-weight: bold; border: none; border-radius: 5px; }
         #dropBtn { background: #5865F2; color: white; font-size: 1.1rem; }
         #saveBtn { background: #3ba55c; color: white; }
         #resultDisplay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 3rem; font-weight: bold; pointer-events: none; text-shadow: 0 0 20px gold; color: gold; display: none; z-index: 10; text-align: center; width: 100%; white-space: pre-wrap; }
-        .room-info { font-size: 11px; color: #888; margin-bottom: 5px; display: flex; justify-content: space-between; }
     </style>
 </head>
 <body>
@@ -27,14 +25,10 @@
     </div>
 
     <div class="controls">
-        <div class="room-info">
-            <span>방 ID: <b id="roomIdDisp"></b></span>
-            <a href="#" onclick="copyLink()" style="color:#5865F2; text-decoration:none;">링크 복사</a>
-        </div>
-        <textarea id="nameInput" placeholder="이름을 쉼표로 구분 (예: 철수, 영희, 민수*2)"></textarea>
+        <textarea id="nameInput" placeholder="이름을 쉼표로 구분"></textarea>
         <div class="option-group">
-            <label><input type="radio" name="winType" value="first" checked> 1등 당첨</label>
-            <label><input type="radio" name="winType" value="last"> 꼴찌 당첨</label>
+            <label><input type="radio" name="winType" value="first" checked> 처음 통과</label>
+            <label><input type="radio" name="winType" value="last"> 마지막 통과</label>
         </div>
         <button id="saveBtn" onclick="saveData()">✅ 설정 저장 & 세팅</button>
         <button id="dropBtn" onclick="triggerDrop()">🔮 레이스 시작!</button>
@@ -55,12 +49,8 @@
 
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
-
         let roomId = new URLSearchParams(window.location.search).get('room') || Math.random().toString(36).substring(2, 7);
         if (!window.location.search.includes('room')) window.history.pushState({}, '', `?room=${roomId}`);
-        document.getElementById('roomIdDisp').innerText = roomId;
-
-        function copyLink() { navigator.clipboard.writeText(window.location.href); alert("링크 복사!"); }
 
         const { Engine, Render, Runner, Bodies, Composite, Events, Body } = Matter;
         const engine = Engine.create();
@@ -72,32 +62,43 @@
 
         const wallOpt = { isStatic: true, render: { fillStyle: '#444' }, friction: 0 };
 
-        // 1. 이미지 기반 지그재그 벽 및 다중 경로 생성
+        // 1. 이미지 기반 고정 벽 생성
         Composite.add(engine.world, [
             Bodies.rectangle(200, 1210, 400, 20, wallOpt), // 바닥
             Bodies.rectangle(-10, 600, 20, 1200, wallOpt), // 왼벽
             Bodies.rectangle(410, 600, 20, 1200, wallOpt), // 오른벽
-
-            // 상단 지그재그
-            Bodies.rectangle(100, 100, 250, 10, { ...wallOpt, angle: 0.8 }),
-            Bodies.rectangle(300, 250, 250, 10, { ...wallOpt, angle: -0.8 }),
-            Bodies.rectangle(100, 400, 250, 10, { ...wallOpt, angle: 0.8 }),
-
-            // 중간 갈림길 (중앙 다이아몬드 차단벽)
-            Bodies.rectangle(200, 600, 120, 10, { ...wallOpt, angle: Math.PI/4 }),
-            Bodies.rectangle(200, 600, 120, 10, { ...wallOpt, angle: -Math.PI/4 }),
-            
-            // 하단 깔때기
-            Bodies.rectangle(50, 1100, 300, 10, { ...wallOpt, angle: 1.2 }),
-            Bodies.rectangle(350, 1100, 300, 10, { ...wallOpt, angle: -1.2 })
+            // 상단 지그재그 슬라이드
+            Bodies.rectangle(120, 150, 280, 10, { ...wallOpt, angle: 0.6 }),
+            Bodies.rectangle(280, 350, 280, 10, { ...wallOpt, angle: -0.6 }),
+            // 하단 배출구 (깔때기 - 구슬 하나만 지나갈 정도의 폭)
+            Bodies.rectangle(130, 1100, 300, 15, { ...wallOpt, angle: 1.3 }),
+            Bodies.rectangle(270, 1100, 300, 15, { ...wallOpt, angle: -1.3 }),
+            // 마지막 구멍 입구 가이드
+            Bodies.rectangle(190, 1180, 5, 50, wallOpt),
+            Bodies.rectangle(210, 1180, 5, 50, wallOpt)
         ]);
 
-        // 2. 고정 핀 (Pins) 배치
-        for (let i = 0; i < 15; i++) {
-            const x = 50 + Math.random() * 300;
-            const y = 700 + Math.random() * 300;
-            Composite.add(engine.world, Bodies.circle(x, y, 4, { isStatic: true, restitution: 1.2, render: { fillStyle: '#777' } }));
-        }
+        // 2. 회전하는 원형 판 (Rotating Disks) 추가
+        const spinners = [];
+        const spinnerPositions = [
+            {x: 100, y: 500, r: 40}, {x: 300, y: 550, r: 40},
+            {x: 200, y: 700, r: 50}, {x: 100, y: 850, r: 40},
+            {x: 300, y: 900, r: 40}
+        ];
+
+        spinnerPositions.forEach(pos => {
+            const disk = Bodies.circle(pos.x, pos.y, pos.r, { 
+                isStatic: true, 
+                render: { fillStyle: '#5865F2' } 
+            });
+            // 판 위에 회전 효과를 줄 작은 막대기 부착
+            const bar = Bodies.rectangle(pos.x, pos.y, pos.r * 2, 8, {
+                isStatic: true,
+                render: { fillStyle: '#ffffff' }
+            });
+            spinners.push({disk, bar, speed: (Math.random() > 0.5 ? 0.05 : -0.05)});
+            Composite.add(engine.world, [disk, bar]);
+        });
 
         // 3. 시작 게이트
         const gate = Bodies.rectangle(200, 30, 400, 10, { isStatic: true, render: { visible: false } });
@@ -105,6 +106,13 @@
 
         Render.run(render);
         Runner.run(Runner.create(), engine);
+
+        // 회전 애니메이션 루프
+        Events.on(engine, 'beforeUpdate', () => {
+            spinners.forEach(s => {
+                Body.setAngle(s.bar, s.bar.angle + s.speed);
+            });
+        });
 
         // 이름표 렌더링
         Events.on(render, 'afterRender', () => {
@@ -131,15 +139,12 @@
             if (val) {
                 document.getElementById('nameInput').value = val.names || "";
                 winCondition = val.winType || 'first';
-                document.querySelector(`input[value="${winCondition}"]`).checked = true;
                 parseNames(val.names);
                 setupMarbles(); 
             }
         });
 
-        db.ref(`rooms/${roomId}/drop`).on('value', snap => {
-            if (snap.val()) startRace();
-        });
+        db.ref(`rooms/${roomId}/drop`).on('value', snap => { if (snap.val()) startRace(); });
 
         function parseNames(str) {
             names = [];
@@ -168,10 +173,7 @@
         }
 
         function saveData() {
-            const config = {
-                names: document.getElementById('nameInput').value,
-                winType: document.querySelector('input[name="winType"]:checked').value
-            };
+            const config = { names: document.getElementById('nameInput').value, winType: document.querySelector('input[name="winType"]:checked').value };
             db.ref(`rooms/${roomId}/config`).set(config);
             db.ref(`rooms/${roomId}/drop`).set(null);
         }
@@ -182,24 +184,19 @@
             if (isRunning) return;
             isRunning = true;
             Composite.remove(engine.world, gate); 
-
             let finished = 0;
             const total = names.length;
             const check = setInterval(() => {
                 const balls = Composite.allBodies(engine.world).filter(b => !b.isStatic);
                 balls.forEach(ball => {
-                    if (ball.position.y > 1180 && !ball.isDone) {
+                    if (ball.position.y > 1185 && !ball.isDone) {
                         ball.isDone = true;
                         finished++;
                         if (winCondition === 'first' && finished === 1) showWinner(ball.label);
                         else if (winCondition === 'last' && finished === total) showWinner(ball.label);
                     }
                 });
-                if (finished === total) {
-                    clearInterval(check);
-                    isRunning = false;
-                    Composite.add(engine.world, gate); 
-                }
+                if (finished === total) { clearInterval(check); isRunning = false; Composite.add(engine.world, gate); }
             }, 100);
         }
 

@@ -2,13 +2,13 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>실시간 구슬 레이스 - 회전판 맵</title>
+    <title>실시간 구슬 레이스 - 핀볼 맵</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.18.0/matter.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-database.js"></script>
     <style>
         body { margin: 0; background: #1a1a1b; color: white; font-family: 'Pretendard', sans-serif; display: flex; flex-direction: column; align-items: center; min-height: 100vh; overflow-y: auto; }
-        #game-container { position: relative; width: 400px; height: 1200px; background: #222; border: 5px solid #333; margin-top: 20px; }
+        #game-container { position: relative; width: 400px; height: 1600px; background: #2a2a2a; border: 5px solid #333; margin-top: 20px; }
         .controls { background: #333; padding: 15px; border-radius: 10px; width: 370px; margin: 20px 0; z-index: 100; }
         textarea { width: 100%; height: 50px; background: #111; color: white; border: 1px solid #444; padding: 8px; box-sizing: border-box; border-radius: 5px; margin-bottom: 10px; resize: none; }
         .option-group { display: flex; justify-content: space-around; background: #222; padding: 10px; border-radius: 5px; margin-bottom: 10px; }
@@ -54,78 +54,118 @@
 
         const { Engine, Render, Runner, Bodies, Composite, Events, Body } = Matter;
         const engine = Engine.create();
+        engine.gravity.y = 0.8;
+        
         const render = Render.create({
             element: document.getElementById('game-container'),
             engine: engine,
-            options: { width: 400, height: 1200, wireframes: false, background: '#222' }
+            options: { width: 400, height: 1600, wireframes: false, background: '#2a2a2a' }
         });
 
-        const wallOpt = { isStatic: true, render: { fillStyle: '#444' }, friction: 0 };
+        const wallOpt = { isStatic: true, render: { fillStyle: '#555' }, friction: 0.001 };
+        const pinOpt = { isStatic: true, render: { fillStyle: '#888' }, restitution: 0.5 };
 
-        // 1. 이미지 기반 고정 벽 생성
+        // 외곽 벽
         Composite.add(engine.world, [
-            Bodies.rectangle(200, 1210, 400, 20, wallOpt), // 바닥
-            Bodies.rectangle(-10, 600, 20, 1200, wallOpt), // 왼벽
-            Bodies.rectangle(410, 600, 20, 1200, wallOpt), // 오른벽
-            // 상단 지그재그 슬라이드
-            Bodies.rectangle(120, 150, 280, 10, { ...wallOpt, angle: 0.6 }),
-            Bodies.rectangle(280, 350, 280, 10, { ...wallOpt, angle: -0.6 }),
-            // 하단 배출구 (깔때기 - 구슬 하나만 지나갈 정도의 폭)
-            Bodies.rectangle(130, 1100, 300, 15, { ...wallOpt, angle: 1.3 }),
-            Bodies.rectangle(270, 1100, 300, 15, { ...wallOpt, angle: -1.3 }),
-            // 마지막 구멍 입구 가이드
-            Bodies.rectangle(190, 1180, 5, 50, wallOpt),
-            Bodies.rectangle(210, 1180, 5, 50, wallOpt)
+            Bodies.rectangle(200, 1610, 400, 20, wallOpt), // 바닥
+            Bodies.rectangle(-5, 800, 10, 1600, wallOpt), // 왼벽
+            Bodies.rectangle(405, 800, 10, 1600, wallOpt), // 오른벽
         ]);
 
-        // 2. 회전하는 원형 판 (Rotating Disks) 추가
-        const spinners = [];
-        const spinnerPositions = [
-            {x: 100, y: 500, r: 40}, {x: 300, y: 550, r: 40},
-            {x: 200, y: 700, r: 50}, {x: 100, y: 850, r: 40},
-            {x: 300, y: 900, r: 40}
-        ];
+        // 상단 지그재그 입구 (사진 상단 부분)
+        Composite.add(engine.world, [
+            Bodies.rectangle(100, 120, 200, 10, { ...wallOpt, angle: 0.5 }),
+            Bodies.rectangle(300, 120, 200, 10, { ...wallOpt, angle: -0.5 }),
+            Bodies.rectangle(120, 220, 240, 10, { ...wallOpt, angle: -0.5 }),
+            Bodies.rectangle(280, 220, 240, 10, { ...wallOpt, angle: 0.5 }),
+        ]);
 
-        spinnerPositions.forEach(pos => {
-            const disk = Bodies.circle(pos.x, pos.y, pos.r, { 
-                isStatic: true, 
-                render: { fillStyle: '#5865F2' } 
-            });
-            // 판 위에 회전 효과를 줄 작은 막대기 부착
-            const bar = Bodies.rectangle(pos.x, pos.y, pos.r * 2, 8, {
-                isStatic: true,
-                render: { fillStyle: '#ffffff' }
-            });
-            spinners.push({disk, bar, speed: (Math.random() > 0.5 ? 0.05 : -0.05)});
-            Composite.add(engine.world, [disk, bar]);
-        });
+        // 중앙 스피커 형태 장애물 (사진 중앙 부분)
+        const speakerLeft = 150;
+        const speakerRight = 250;
+        Composite.add(engine.world, [
+            // 좌측 스피커 벽
+            Bodies.rectangle(speakerLeft, 400, 10, 100, wallOpt),
+            Bodies.rectangle(speakerLeft - 20, 450, 50, 10, wallOpt),
+            Bodies.rectangle(speakerLeft, 500, 10, 200, wallOpt),
+            
+            // 우측 스피커 벽
+            Bodies.rectangle(speakerRight, 400, 10, 100, wallOpt),
+            Bodies.rectangle(speakerRight + 20, 450, 50, 10, wallOpt),
+            Bodies.rectangle(speakerRight, 500, 10, 200, wallOpt),
+            
+            // 스피커 내부 돌기들 (6개)
+            Bodies.circle(170, 480, 4, pinOpt),
+            Bodies.circle(185, 480, 4, pinOpt),
+            Bodies.circle(170, 510, 4, pinOpt),
+            Bodies.circle(185, 510, 4, pinOpt),
+            Bodies.circle(170, 540, 4, pinOpt),
+            Bodies.circle(185, 540, 4, pinOpt),
+            
+            Bodies.circle(215, 480, 4, pinOpt),
+            Bodies.circle(230, 480, 4, pinOpt),
+            Bodies.circle(215, 510, 4, pinOpt),
+            Bodies.circle(230, 510, 4, pinOpt),
+            Bodies.circle(215, 540, 4, pinOpt),
+            Bodies.circle(230, 540, 4, pinOpt),
+        ]);
 
-        // 3. 시작 게이트
-        const gate = Bodies.rectangle(200, 30, 400, 10, { isStatic: true, render: { visible: false } });
+        // 핀볼 핀들 (파친코 스타일)
+        const pins = [];
+        for (let row = 0; row < 15; row++) {
+            const y = 700 + row * 50;
+            const offset = row % 2 === 0 ? 0 : 25;
+            for (let col = 0; col < 8; col++) {
+                const x = 50 + col * 50 + offset;
+                if (x > 30 && x < 370) {
+                    pins.push(Bodies.circle(x, y, 5, pinOpt));
+                }
+            }
+        }
+        Composite.add(engine.world, pins);
+
+        // 하단 깔때기 형태 (사진 하단)
+        Composite.add(engine.world, [
+            // 깔때기 사선
+            Bodies.rectangle(120, 1420, 280, 10, { ...wallOpt, angle: 0.8 }),
+            Bodies.rectangle(280, 1420, 280, 10, { ...wallOpt, angle: -0.8 }),
+            
+            // 좁은 통로 벽
+            Bodies.rectangle(185, 1500, 10, 120, wallOpt),
+            Bodies.rectangle(215, 1500, 10, 120, wallOpt),
+            
+            // 하단 지그재그
+            Bodies.rectangle(150, 1520, 80, 8, { ...wallOpt, angle: 0.6 }),
+            Bodies.rectangle(250, 1520, 80, 8, { ...wallOpt, angle: -0.6 }),
+            Bodies.rectangle(160, 1555, 90, 8, { ...wallOpt, angle: -0.5 }),
+            Bodies.rectangle(240, 1555, 90, 8, { ...wallOpt, angle: 0.5 }),
+        ]);
+
+        // 최종 출구
+        Composite.add(engine.world, [
+            Bodies.rectangle(190, 1590, 5, 30, wallOpt),
+            Bodies.rectangle(210, 1590, 5, 30, wallOpt),
+        ]);
+
+        // 시작 게이트
+        const gate = Bodies.rectangle(200, 50, 300, 10, { isStatic: true, render: { visible: false } });
         Composite.add(engine.world, gate);
 
         Render.run(render);
         Runner.run(Runner.create(), engine);
 
-        // 회전 애니메이션 루프
-        Events.on(engine, 'beforeUpdate', () => {
-            spinners.forEach(s => {
-                Body.setAngle(s.bar, s.bar.angle + s.speed);
-            });
-        });
-
         // 이름표 렌더링
         Events.on(render, 'afterRender', () => {
             const ctx = render.context;
-            ctx.font = "bold 12px sans-serif";
+            ctx.font = "bold 11px sans-serif";
             ctx.textAlign = "center";
             Composite.allBodies(engine.world).forEach(body => {
                 if (body.label && body.label !== 'Body' && !body.isStatic) {
-                    ctx.fillStyle = "rgba(0,0,0,0.6)";
+                    ctx.fillStyle = "rgba(0,0,0,0.7)";
                     const tw = ctx.measureText(body.label).width;
-                    ctx.fillRect(body.position.x - tw/2 - 4, body.position.y - 32, tw + 8, 18);
+                    ctx.fillRect(body.position.x - tw/2 - 3, body.position.y - 28, tw + 6, 16);
                     ctx.fillStyle = "white";
-                    ctx.fillText(body.label, body.position.x, body.position.y - 18);
+                    ctx.fillText(body.label, body.position.x, body.position.y - 16);
                 }
             });
         });
@@ -164,9 +204,9 @@
             document.getElementById('resultDisplay').style.display = 'none';
 
             names.forEach((name, i) => {
-                const ball = Bodies.circle(180 + (Math.random() * 40), 15, 10, {
-                    restitution: 0.5, friction: 0, label: name,
-                    render: { fillStyle: `hsl(${Math.random() * 360}, 70%, 60%)` }
+                const ball = Bodies.circle(180 + (Math.random() * 40), 30, 9, {
+                    restitution: 0.6, friction: 0.002, density: 0.001, label: name,
+                    render: { fillStyle: `hsl(${Math.random() * 360}, 80%, 60%)` }
                 });
                 Composite.add(engine.world, ball);
             });
@@ -189,7 +229,7 @@
             const check = setInterval(() => {
                 const balls = Composite.allBodies(engine.world).filter(b => !b.isStatic);
                 balls.forEach(ball => {
-                    if (ball.position.y > 1185 && !ball.isDone) {
+                    if (ball.position.y > 1580 && !ball.isDone) {
                         ball.isDone = true;
                         finished++;
                         if (winCondition === 'first' && finished === 1) showWinner(ball.label);

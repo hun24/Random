@@ -649,15 +649,26 @@
             const total = names.length;
             const check = setInterval(() => {
                 const balls = Composite.allBodies(engine.world).filter(b => !b.isStatic && b.label !== 'gate');
+                
                 balls.forEach(ball => {
-                    if (ball.position.y > 1595 && !ball. isDone) {
+                    // Y축 1595 이상 도달 시 (바닥 도착)
+                    if (ball.position.y > 1595 && !ball.isDone) {
                         ball.isDone = true;
-                        Composite.remove(engine.world, ball);  // ← 이 줄이 추가됨
                         finished++;
-                        if (winCondition === 'first' && finished === 1) showWinner(ball.label);
-                        else if (winCondition === 'last' && finished === total) showWinner(ball.label);
+
+                        // 1. 승리자 표시 로직
+                        if (winCondition === 'first' && finished === 1) {
+                            showWinner(ball.label);
+                        } else if (winCondition === 'last' && finished === total) {
+                            showWinner(ball.label);
+                        }
+
+                        // 2. 구슬 제거 (World에서 삭제하여 화면에서 사라지게 함)
+                        Composite.remove(engine.world, ball);
                     }
                 });
+
+                // 모든 구슬이 도착했거나 삭제되었다면 체크 중지
                 if (finished === total) { 
                     clearInterval(check); 
                     isRunning = false; 

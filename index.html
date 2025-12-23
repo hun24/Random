@@ -321,37 +321,41 @@
 
         function addObject(x, y) {
             let body;
-            
+            let commonOptions = {
+                isStatic: true,
+                angle: currentAngle,
+                label: 'custom',
+                // 실제 크기를 저장해둡니다 (추출용)
+                myInternalData: {
+                    w: currentTool === 'pin' ? currentSize / 5 : currentSize,
+                    h: currentTool === 'pin' ? currentSize / 5 : (currentTool === 'spinner' ? 8 : 10),
+                    origSize: currentSize
+                }
+            };
+
             if (currentTool === 'wall') {
                 body = Bodies.rectangle(x, y, currentSize, 10, {
-                    isStatic: true,
-                    angle: currentAngle,
+                    ...commonOptions,
                     render: { fillStyle: '#00ff00' },
-                    friction: 0.001,
-                    label: 'custom'
+                    friction: 0.001
                 });
-                Composite.add(engine.world, body);
             } else if (currentTool === 'spinner') {
                 body = Bodies.rectangle(x, y, currentSize, 8, {
-                    isStatic: true,
-                    angle: currentAngle,
+                    ...commonOptions,
                     render: { fillStyle: '#ffff00' },
                     chamfer: { radius: 3 },
                     friction: 0,
-                    frictionStatic: 0,
-                    label: 'custom'
+                    frictionStatic: 0
                 });
                 spinners.push({ body: body, speed: currentSpeed, type: 'rect' });
-                Composite.add(engine.world, body);
             } else if (currentTool === 'pin') {
                 body = Bodies.circle(x, y, currentSize / 5, {
-                    isStatic: true,
+                    ...commonOptions,
                     render: { fillStyle: '#ff00ff' },
-                    restitution: 0.5,
-                    label: 'custom'
+                    restitution: 0.5
                 });
-                Composite.add(engine.world, body);
             }
+            if (body) Composite.add(engine.world, body);
         }
 
         function deleteObjectAt(x, y) {
@@ -377,76 +381,79 @@
         }
 
         function saveMap() {
-            const customObjects = [];
+            const allMapObjects = [];
             const bodies = Composite.allBodies(engine.world);
             
             bodies.forEach(body => {
-                if (body.label === 'custom') {
+                // 커스텀과 기본 요소를 모두 저장 (외곽벽과 게이트 제외)
+                if (body.label === 'custom' || body.label === 'default') {
                     const spinner = spinners.find(s => s.body === body);
-                    customObjects.push({
+                    
+                    // 기본 요소(default)는 myInternalData가 없으므로 수동 계산
+                    let w, h;
+                    if (body.myInternalData) {
+                        w = body.myInternalData.w;
+                        h = body.myInternalData.h;
+                    } else {
+                        // 기본 사각형들 크기 역산 (회전 안 된 상태 기준)
+                        w = body.parts[0].vertices[1].x - body.parts[0].vertices[0].x;
+                        h = body.parts[0].vertices[2].y - body.parts[0].vertices[1].y;
+                    }
+
+                    allMapObjects.push({
+                        label: body.label, // custom 또는 default 구분
                         type: body.circleRadius ? 'pin' : (spinner ? 'spinner' : 'wall'),
                         x: body.position.x,
                         y: body.position.y,
-                        width: body.bounds.max.x - body.bounds.min.x,
-                        height: body.bounds.max.y - body.bounds.min.y,
+                        width: w,
+                        height: h,
                         angle: body.angle,
                         speed: spinner ? spinner.speed : 0,
-                        radius: body.circleRadius || 0
+                        radius: body.circleRadius || 0,
+                        renderColor: body.render.fillStyle
                     });
                 }
             });
             
-            db.ref(`rooms/${roomId}/customMap`).set(customObjects);
-            alert('맵이 저장되었습니다!');
+            db.ref(`rooms/${roomId}/customMap`).set(allMapObjects);
+            alert('기존 요소를 포함한 모든 맵이 저장되었습니다!');
         }
 
         function loadMap() {
             db.ref(`rooms/${roomId}/customMap`).once('value', snap => {
-                const customObjects = snap.val();
-                if (!customObjects) {
+                const mapData = snap.val();
+                if (!mapData) {
                     alert('저장된 맵이 없습니다.');
                     return;
                 }
                 
-                // 기존 커스텀 오브젝트 삭제
+                // 기존의 모든 맵 오브젝트 삭제
                 clearCustomMap();
                 
-                // 불러온 오브젝트 생성
-                customObjects.forEach(obj => {
+                mapData.forEach(obj => {
                     let body;
-                    if (obj.type === 'wall') {
-                        body = Bodies.rectangle(obj.x, obj.y, obj.width, obj.height, {
-                            isStatic: true,
-                            angle: obj.angle,
-                            render: { fillStyle: '#00ff00' },
-                            friction: 0.001,
-                            label: 'custom'
-                        });
-                        Composite.add(engine.world, body);
-                    } else if (obj.type === 'spinner') {
-                        body = Bodies.rectangle(obj.x, obj.y, obj.width, obj.height, {
-                            isStatic: true,
-                            angle: obj.angle,
-                            render: { fillStyle: '#ffff00' },
-                            chamfer: { radius: 3 },
-                            friction: 0,
-                            frictionStatic: 0,
-                            label: 'custom'
-                        });
-                        spinners.push({ body: body, speed: obj.speed, type: 'rect' });
-                        Composite.add(engine.world, body);
-                    } else if (obj.type === 'pin') {
+                    let options = {
+                        isStatic: true,
+                        angle: obj.angle,
+                        label: obj.label, // 저장된 라벨 복원
+                        render: { fillStyle: obj.renderColor },
+                        myInternalData: { w: obj.width, h: obj.height }
+                    };
+
+                    if (obj.type === 'pin') {
                         body = Bodies.circle(obj.x, obj.y, obj.radius, {
-                            isStatic: true,
-                            render: { fillStyle: '#ff00ff' },
-                            restitution: 0.5,
-                            label: 'custom'
+                            ...options,
+                            restitution: 0.5
                         });
-                        Composite.add(engine.world, body);
+                    } else {
+                        body = Bodies.rectangle(obj.x, obj.y, obj.width, obj.height, options);
+                        if (obj.type === 'spinner') {
+                            spinners.push({ body: body, speed: obj.speed, type: 'rect' });
+                        }
                     }
+                    if (body) Composite.add(engine.world, body);
                 });
-                
-                alert('맵을 불러왔습니다!');
+                alert('모든 요소를 불러왔습니다!');
             });
         }
 

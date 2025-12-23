@@ -650,8 +650,9 @@
             const check = setInterval(() => {
                 const balls = Composite.allBodies(engine.world).filter(b => !b.isStatic && b.label !== 'gate');
                 balls.forEach(ball => {
-                    if (ball.position.y > 1595 && !ball.isDone) {
+                    if (ball.position.y > 1595 && !ball. isDone) {
                         ball.isDone = true;
+                        Composite.remove(engine.world, ball);  // ← 이 줄이 추가됨
                         finished++;
                         if (winCondition === 'first' && finished === 1) showWinner(ball.label);
                         else if (winCondition === 'last' && finished === total) showWinner(ball.label);

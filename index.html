@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>실시간 구슬 레이스 - 핀볼 맵</title>
+    <title>실시간 구슬 레이스 - 회전판 핀볼 맵</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.18.0/matter.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-database.js"></script>
@@ -72,7 +72,7 @@
             Bodies.rectangle(405, 800, 10, 1600, wallOpt), // 오른벽
         ]);
 
-        // 상단 지그재그 입구 (사진 상단 부분)
+        // 상단 지그재그 입구
         Composite.add(engine.world, [
             Bodies.rectangle(100, 120, 200, 10, { ...wallOpt, angle: 0.5 }),
             Bodies.rectangle(300, 120, 200, 10, { ...wallOpt, angle: -0.5 }),
@@ -80,66 +80,121 @@
             Bodies.rectangle(280, 220, 240, 10, { ...wallOpt, angle: 0.5 }),
         ]);
 
-        // 중앙 스피커 형태 장애물 (사진 중앙 부분)
-        const speakerLeft = 150;
-        const speakerRight = 250;
+        // 회전판과 벽 정의
+        const spinners = [];
+        
+        // 중앙 섹션 - 스피커 형태 (회전판과 긴 벽)
+        // 왼쪽 긴 벽
         Composite.add(engine.world, [
-            // 좌측 스피커 벽
-            Bodies.rectangle(speakerLeft, 400, 10, 100, wallOpt),
-            Bodies.rectangle(speakerLeft - 20, 450, 50, 10, wallOpt),
-            Bodies.rectangle(speakerLeft, 500, 10, 200, wallOpt),
-            
-            // 우측 스피커 벽
-            Bodies.rectangle(speakerRight, 400, 10, 100, wallOpt),
-            Bodies.rectangle(speakerRight + 20, 450, 50, 10, wallOpt),
-            Bodies.rectangle(speakerRight, 500, 10, 200, wallOpt),
-            
-            // 스피커 내부 돌기들 (6개)
-            Bodies.circle(170, 480, 4, pinOpt),
-            Bodies.circle(185, 480, 4, pinOpt),
-            Bodies.circle(170, 510, 4, pinOpt),
-            Bodies.circle(185, 510, 4, pinOpt),
-            Bodies.circle(170, 540, 4, pinOpt),
-            Bodies.circle(185, 540, 4, pinOpt),
-            
-            Bodies.circle(215, 480, 4, pinOpt),
-            Bodies.circle(230, 480, 4, pinOpt),
-            Bodies.circle(215, 510, 4, pinOpt),
-            Bodies.circle(230, 510, 4, pinOpt),
-            Bodies.circle(215, 540, 4, pinOpt),
-            Bodies.circle(230, 540, 4, pinOpt),
+            Bodies.rectangle(130, 350, 8, 120, wallOpt),
+            Bodies.rectangle(130, 520, 8, 200, wallOpt),
+        ]);
+        
+        // 오른쪽 긴 벽
+        Composite.add(engine.world, [
+            Bodies.rectangle(270, 350, 8, 120, wallOpt),
+            Bodies.rectangle(270, 520, 8, 200, wallOpt),
         ]);
 
-        // 핀볼 핀들 (파친코 스타일)
+        // 중앙 스피커 부분의 회전판들 (6개의 짧은 회전판)
+        const speakerSpinners = [
+            {x: 160, y: 460, w: 35, h: 6, speed: 0.05},
+            {x: 190, y: 460, w: 35, h: 6, speed: -0.05},
+            {x: 160, y: 500, w: 35, h: 6, speed: -0.05},
+            {x: 190, y: 500, w: 35, h: 6, speed: 0.05},
+            {x: 160, y: 540, w: 35, h: 6, speed: 0.05},
+            {x: 190, y: 540, w: 35, h: 6, speed: -0.05},
+            
+            {x: 210, y: 460, w: 35, h: 6, speed: 0.05},
+            {x: 240, y: 460, w: 35, h: 6, speed: -0.05},
+            {x: 210, y: 500, w: 35, h: 6, speed: -0.05},
+            {x: 240, y: 500, w: 35, h: 6, speed: 0.05},
+            {x: 210, y: 540, w: 35, h: 6, speed: 0.05},
+            {x: 240, y: 540, w: 35, h: 6, speed: -0.05},
+        ];
+
+        speakerSpinners.forEach(s => {
+            const spinner = Bodies.rectangle(s.x, s.y, s.w, s.h, {
+                isStatic: true,
+                render: { fillStyle: '#4a9eff' },
+                chamfer: { radius: 2 }
+            });
+            spinners.push({ body: spinner, speed: s.speed, type: 'rect' });
+            Composite.add(engine.world, spinner);
+        });
+
+        // 중단 섹션 - 회전판들이 있는 핀볼 영역
+        // 양옆 긴 벽
+        Composite.add(engine.world, [
+            Bodies.rectangle(80, 800, 8, 250, wallOpt),
+            Bodies.rectangle(320, 800, 8, 250, wallOpt),
+            Bodies.rectangle(80, 1100, 8, 200, wallOpt),
+            Bodies.rectangle(320, 1100, 8, 200, wallOpt),
+        ]);
+
+        // 중단 회전판들 (왼쪽-오른쪽 번갈아가며)
+        const middleSpinners = [
+            {x: 120, y: 750, w: 50, h: 8, speed: 0.06},
+            {x: 280, y: 820, w: 50, h: 8, speed: -0.06},
+            {x: 120, y: 900, w: 50, h: 8, speed: -0.05},
+            {x: 280, y: 970, w: 50, h: 8, speed: 0.05},
+            {x: 120, y: 1050, w: 50, h: 8, speed: 0.06},
+            {x: 280, y: 1120, w: 50, h: 8, speed: -0.06},
+            {x: 120, y: 1200, w: 50, h: 8, speed: -0.05},
+        ];
+
+        middleSpinners.forEach(s => {
+            const spinner = Bodies.rectangle(s.x, s.y, s.w, s.h, {
+                isStatic: true,
+                render: { fillStyle: '#ff6b6b' },
+                chamfer: { radius: 3 }
+            });
+            spinners.push({ body: spinner, speed: s.speed, type: 'rect' });
+            Composite.add(engine.world, spinner);
+        });
+
+        // 핀볼 핀들 (파친코 스타일) - 회전판 사이사이
         const pins = [];
-        for (let row = 0; row < 15; row++) {
-            const y = 700 + row * 50;
+        for (let row = 0; row < 12; row++) {
+            const y = 750 + row * 55;
             const offset = row % 2 === 0 ? 0 : 25;
-            for (let col = 0; col < 8; col++) {
-                const x = 50 + col * 50 + offset;
-                if (x > 30 && x < 370) {
+            for (let col = 0; col < 6; col++) {
+                const x = 120 + col * 40 + offset;
+                if (x > 100 && x < 300) {
                     pins.push(Bodies.circle(x, y, 5, pinOpt));
                 }
             }
         }
         Composite.add(engine.world, pins);
 
-        // 하단 깔때기 형태 (사진 하단)
+        // 하단 깔때기 및 출구
         Composite.add(engine.world, [
             // 깔때기 사선
-            Bodies.rectangle(120, 1420, 280, 10, { ...wallOpt, angle: 0.8 }),
-            Bodies.rectangle(280, 1420, 280, 10, { ...wallOpt, angle: -0.8 }),
+            Bodies.rectangle(120, 1380, 250, 10, { ...wallOpt, angle: 0.7 }),
+            Bodies.rectangle(280, 1380, 250, 10, { ...wallOpt, angle: -0.7 }),
             
             // 좁은 통로 벽
-            Bodies.rectangle(185, 1500, 10, 120, wallOpt),
-            Bodies.rectangle(215, 1500, 10, 120, wallOpt),
-            
-            // 하단 지그재그
-            Bodies.rectangle(150, 1520, 80, 8, { ...wallOpt, angle: 0.6 }),
-            Bodies.rectangle(250, 1520, 80, 8, { ...wallOpt, angle: -0.6 }),
-            Bodies.rectangle(160, 1555, 90, 8, { ...wallOpt, angle: -0.5 }),
-            Bodies.rectangle(240, 1555, 90, 8, { ...wallOpt, angle: 0.5 }),
+            Bodies.rectangle(185, 1470, 8, 100, wallOpt),
+            Bodies.rectangle(215, 1470, 8, 100, wallOpt),
         ]);
+
+        // 하단 회전판들 (지그재그 출구)
+        const bottomSpinners = [
+            {x: 150, y: 1490, w: 40, h: 6, speed: 0.08},
+            {x: 250, y: 1510, w: 40, h: 6, speed: -0.08},
+            {x: 160, y: 1540, w: 45, h: 6, speed: -0.07},
+            {x: 240, y: 1560, w: 45, h: 6, speed: 0.07},
+        ];
+
+        bottomSpinners.forEach(s => {
+            const spinner = Bodies.rectangle(s.x, s.y, s.w, s.h, {
+                isStatic: true,
+                render: { fillStyle: '#ffd93d' },
+                chamfer: { radius: 2 }
+            });
+            spinners.push({ body: spinner, speed: s.speed, type: 'rect' });
+            Composite.add(engine.world, spinner);
+        });
 
         // 최종 출구
         Composite.add(engine.world, [
@@ -153,6 +208,13 @@
 
         Render.run(render);
         Runner.run(Runner.create(), engine);
+
+        // 회전판 애니메이션
+        Events.on(engine, 'beforeUpdate', () => {
+            spinners.forEach(s => {
+                Body.setAngle(s.body, s.body.angle + s.speed);
+            });
+        });
 
         // 이름표 렌더링
         Events.on(render, 'afterRender', () => {

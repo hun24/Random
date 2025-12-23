@@ -177,36 +177,29 @@
         // 하단 깔때기 - 더 넓게
         Composite.add(engine.world, [
             // 깔때기 사선
-            Bodies.rectangle(100, 1350, 220, 10, { ...wallOpt, angle: 0.6 }),
-            Bodies.rectangle(300, 1350, 220, 10, { ...wallOpt, angle: -0.6 }),
+            Bodies.rectangle(90, 1340, 200, 10, { ...wallOpt, angle: 0.55 }),
+            Bodies.rectangle(310, 1340, 200, 10, { ...wallOpt, angle: -0.55 }),
         ]);
 
-        // 하단 최종 구간 - 옆으로 빠지지 않게 긴 벽 추가
+        // 하단 최종 구간 - 옆으로 빠지지 않게 벽 강화
         Composite.add(engine.world, [
-            // 좁은 통로로 가기 전 가이드 벽
-            Bodies.rectangle(140, 1450, 8, 100, wallOpt),
-            Bodies.rectangle(260, 1450, 8, 100, wallOpt),
+            // 좁은 통로로 가기 전 가이드 벽 (더 높고 길게)
+            Bodies.rectangle(130, 1440, 10, 150, wallOpt),
+            Bodies.rectangle(270, 1440, 10, 150, wallOpt),
             
-            // 최종 통로 벽 - 더 길게
-            Bodies.rectangle(185, 1520, 8, 160, wallOpt),
-            Bodies.rectangle(215, 1520, 8, 160, wallOpt),
+            // 최종 통로 벽 - 더 넓고 길게 (구멍 크기 증가: 25 -> 40)
+            Bodies.rectangle(180, 1530, 10, 180, wallOpt),
+            Bodies.rectangle(220, 1530, 10, 180, wallOpt),
             
-            // 최종 출구 벽 - 옆으로 빠지지 않게
-            Bodies.rectangle(165, 1590, 30, 8, wallOpt), // 왼쪽 차단
-            Bodies.rectangle(235, 1590, 30, 8, wallOpt), // 오른쪽 차단
+            // 추가 측면 벽 (옆으로 빠지는 것 완전 차단)
+            Bodies.rectangle(165, 1540, 10, 100, wallOpt), // 왼쪽 측면
+            Bodies.rectangle(235, 1540, 10, 100, wallOpt), // 오른쪽 측면
         ]);
 
-        // 하단 회전판들 제거 (X자 벽 제거)
-        // 대신 간단한 경사로만 추가
+        // 하단 경사로 (X자 대신)
         Composite.add(engine.world, [
-            Bodies.rectangle(170, 1500, 50, 8, { ...wallOpt, angle: 0.3 }),
-            Bodies.rectangle(230, 1520, 50, 8, { ...wallOpt, angle: -0.3 }),
-        ]);
-
-        // 최종 출구 깔때기
-        Composite.add(engine.world, [
-            Bodies.rectangle(185, 1585, 25, 8, { ...wallOpt, angle: 0.5 }),
-            Bodies.rectangle(215, 1585, 25, 8, { ...wallOpt, angle: -0.5 }),
+            Bodies.rectangle(165, 1490, 45, 8, { ...wallOpt, angle: 0.25 }),
+            Bodies.rectangle(235, 1510, 45, 8, { ...wallOpt, angle: -0.25 }),
         ]);
 
         // 시작 게이트
@@ -251,6 +244,15 @@
                         ball.stuckTimer[idx] = null;
                     }
                 });
+                
+                // 옆으로 빠지려는 구슬 강제로 중앙으로 유도 (하단 영역)
+                if (ball.position.y > 1400) {
+                    if (ball.position.x < 170) {
+                        Body.applyForce(ball, ball.position, { x: 0.0005, y: 0 });
+                    } else if (ball.position.x > 230) {
+                        Body.applyForce(ball, ball.position, { x: -0.0005, y: 0 });
+                    }
+                }
             });
         });
 
@@ -274,11 +276,13 @@
         let winCondition = 'first';
         let isRunning = false;
         let marblesCreated = false;
+        let savedNameInput = ''; // 이름 리스트 저장용
 
         db.ref(`rooms/${roomId}/config`).on('value', snap => {
             const val = snap.val();
             if (val && val.shouldSetup) {
                 document.getElementById('nameInput').value = val.names || "";
+                savedNameInput = val.names || ""; // 이름 저장
                 winCondition = val.winType || 'first';
                 parseNames(val.names);
                 setupMarbles();
@@ -351,6 +355,7 @@
                 return;
             }
 
+            savedNameInput = inputValue; // 이름 저장
             const config = { 
                 names: inputValue, 
                 winType: document.querySelector('input[name="winType"]:checked').value,
@@ -382,11 +387,14 @@
             document.getElementById('resultDisplay').style.display = 'none';
             isRunning = false;
             marblesCreated = false;
-            names = [];
-            document.getElementById('dropBtn').disabled = true;
-            document.getElementById('nameInput').value = '';
             
-            db.ref(`rooms/${roomId}/config`).set(null);
+            // 버튼 비활성화
+            document.getElementById('dropBtn').disabled = true;
+            
+            // 이름 리스트는 유지 (초기화하지 않음)
+            // document.getElementById('nameInput').value = savedNameInput; // 이미 저장된 값 유지됨
+            
+            // Firebase 데이터만 초기화
             db.ref(`rooms/${roomId}/drop`).set(null);
         }
 

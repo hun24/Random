@@ -35,7 +35,15 @@
     </style>
 </head>
 <body>
-
+    <div class="controls" style="margin-bottom: 5px; background: #2c2f33;">
+        <div style="display: flex; gap: 10px; align-items: center; justify-content: center;">
+            <span style="font-weight: bold; color: #5865F2;">현재 방: <span id="currentRoomDisplay"></span></span>
+            <input type="text" id="roomInput" placeholder="방 번호 입력" style="width: 80px; padding: 5px; border-radius: 3px; border: none;">
+            <button class="small-btn" onclick="changeRoom()" style="width: auto; padding: 5px 15px; margin: 0; background: #5865F2;">이동</button>
+            <button class="small-btn" onclick="randomRoom()" style="width: auto; padding: 5px 15px; margin: 0; background: #72767d;">랜덤 방</button>
+        </div>
+    </div>
+    
     <div id="game-container">
         <div id="resultDisplay"></div>
     </div>
@@ -750,6 +758,32 @@
             res.innerText = `🏆 당첨 🏆\n${name}`;
             res.style.display = 'block';
         }
+
+
+        // 1. 페이지 로드 시 현재 방 번호 표시
+        document.getElementById('currentRoomDisplay').textContent = roomId;
+
+// 2. 특정 방 번호로 이동하는 함수
+        function changeRoom() {
+            const newRoom = document.getElementById('roomInput').value.trim();
+            if (newRoom) {
+        // URL의 room 파라미터를 변경하고 새로고침
+                window.location.href = `?room=${newRoom}`;
+            } else {
+                alert("이동할 방 번호를 입력해주세요.");
+            }
+        }
+
+// 3. 완전히 새로운 랜덤 방 생성 함수
+        function randomRoom() {
+            const newId = Math.random().toString(36).substring(2, 7);
+            window.location.href = `?room=${newId}`;
+        }
+
+// 엔터 키 입력 시 이동 가능하게 설정
+        document.getElementById('roomInput').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') changeRoom();
+        });
     </script>
 </body>
 </html>

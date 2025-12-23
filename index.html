@@ -15,7 +15,9 @@
         button { width: 100%; padding: 12px; margin-top: 5px; cursor: pointer; font-weight: bold; border: none; border-radius: 5px; }
         #dropBtn { background: #5865F2; color: white; font-size: 1.1rem; }
         #saveBtn { background: #3ba55c; color: white; }
+        #resetBtn { background: #ed4245; color: white; }
         #resultDisplay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 3rem; font-weight: bold; pointer-events: none; text-shadow: 0 0 20px gold; color: gold; display: none; z-index: 10; text-align: center; width: 100%; white-space: pre-wrap; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
     </style>
 </head>
 <body>
@@ -25,13 +27,14 @@
     </div>
 
     <div class="controls">
-        <textarea id="nameInput" placeholder="이름을 쉼표로 구분"></textarea>
+        <textarea id="nameInput" placeholder="이름을 쉼표로 구분 (예: 철수, 영희, 민수*3)"></textarea>
         <div class="option-group">
             <label><input type="radio" name="winType" value="first" checked> 처음 통과</label>
             <label><input type="radio" name="winType" value="last"> 마지막 통과</label>
         </div>
-        <button id="saveBtn" onclick="saveData()">✅ 설정 저장 & 세팅</button>
-        <button id="dropBtn" onclick="triggerDrop()">🔮 레이스 시작!</button>
+        <button id="saveBtn" onclick="saveData()">✅ 설정 저장 & 구슬 세팅</button>
+        <button id="dropBtn" onclick="triggerDrop()" disabled>🔮 레이스 시작!</button>
+        <button id="resetBtn" onclick="resetGame()">🔄 초기화</button>
     </div>
 
     <script>
@@ -72,12 +75,12 @@
             Bodies.rectangle(405, 800, 10, 1600, wallOpt), // 오른벽
         ]);
 
-        // 상단 지그재그 입구
+        // 상단 입구 - X자 제거하고 깔때기 형태로 수정
         Composite.add(engine.world, [
-            Bodies.rectangle(100, 120, 200, 10, { ...wallOpt, angle: 0.5 }),
-            Bodies.rectangle(300, 120, 200, 10, { ...wallOpt, angle: -0.5 }),
-            Bodies.rectangle(120, 220, 240, 10, { ...wallOpt, angle: -0.5 }),
-            Bodies.rectangle(280, 220, 240, 10, { ...wallOpt, angle: 0.5 }),
+            Bodies.rectangle(80, 100, 140, 10, { ...wallOpt, angle: 0.4 }),
+            Bodies.rectangle(320, 100, 140, 10, { ...wallOpt, angle: -0.4 }),
+            Bodies.rectangle(60, 180, 100, 10, { ...wallOpt, angle: -0.3 }),
+            Bodies.rectangle(340, 180, 100, 10, { ...wallOpt, angle: 0.3 }),
         ]);
 
         // 회전판과 벽 정의
@@ -86,14 +89,14 @@
         // 중앙 섹션 - 스피커 형태 (회전판과 긴 벽)
         // 왼쪽 긴 벽
         Composite.add(engine.world, [
-            Bodies.rectangle(130, 350, 8, 120, wallOpt),
-            Bodies.rectangle(130, 520, 8, 200, wallOpt),
+            Bodies.rectangle(130, 380, 8, 180, wallOpt),
+            Bodies.rectangle(130, 590, 8, 200, wallOpt),
         ]);
         
         // 오른쪽 긴 벽
         Composite.add(engine.world, [
-            Bodies.rectangle(270, 350, 8, 120, wallOpt),
-            Bodies.rectangle(270, 520, 8, 200, wallOpt),
+            Bodies.rectangle(270, 380, 8, 180, wallOpt),
+            Bodies.rectangle(270, 590, 8, 200, wallOpt),
         ]);
 
         // 중앙 스피커 부분의 회전판들 (6개의 짧은 회전판)
@@ -202,8 +205,12 @@
             Bodies.rectangle(210, 1590, 5, 30, wallOpt),
         ]);
 
-        // 시작 게이트
-        const gate = Bodies.rectangle(200, 50, 300, 10, { isStatic: true, render: { visible: false } });
+        // 시작 게이트 - 처음에는 보이게 설정
+        const gate = Bodies.rectangle(200, 50, 350, 15, { 
+            isStatic: true, 
+            render: { fillStyle: '#ff0000', opacity: 0.7 },
+            label: 'gate'
+        });
         Composite.add(engine.world, gate);
 
         Render.run(render);
@@ -222,7 +229,7 @@
             ctx.font = "bold 11px sans-serif";
             ctx.textAlign = "center";
             Composite.allBodies(engine.world).forEach(body => {
-                if (body.label && body.label !== 'Body' && !body.isStatic) {
+                if (body.label && body.label !== 'Body' && body.label !== 'gate' && !body.isStatic) {
                     ctx.fillStyle = "rgba(0,0,0,0.7)";
                     const tw = ctx.measureText(body.label).width;
                     ctx.fillRect(body.position.x - tw/2 - 3, body.position.y - 28, tw + 6, 16);
@@ -235,18 +242,30 @@
         let names = [];
         let winCondition = 'first';
         let isRunning = false;
+        let marblesCreated = false;
 
         db.ref(`rooms/${roomId}/config`).on('value', snap => {
             const val = snap.val();
-            if (val) {
+            if (val && val.shouldSetup) {
                 document.getElementById('nameInput').value = val.names || "";
                 winCondition = val.winType || 'first';
                 parseNames(val.names);
-                setupMarbles(); 
+                setupMarbles();
+                // shouldSetup 플래그 제거
+                db.ref(`rooms/${roomId}/config/shouldSetup`).set(null);
             }
         });
 
-        db.ref(`rooms/${roomId}/drop`).on('value', snap => { if (snap.val()) startRace(); });
+        db.ref(`rooms/${roomId}/drop`).on('value', snap => { 
+            if (snap.val() && marblesCreated) startRace(); 
+        });
+
+        db.ref(`rooms/${roomId}/reset`).on('value', snap => {
+            if (snap.val()) {
+                performReset();
+                db.ref(`rooms/${roomId}/reset`).set(null);
+            }
+        });
 
         function parseNames(str) {
             names = [];
@@ -261,9 +280,25 @@
 
         function setupMarbles() {
             if (isRunning) return;
-            const balls = Composite.allBodies(engine.world).filter(b => !b.isStatic);
+            
+            // 기존 구슬들 제거
+            const balls = Composite.allBodies(engine.world).filter(b => !b.isStatic && b.label !== 'gate');
             balls.forEach(b => Composite.remove(engine.world, b));
+            
             document.getElementById('resultDisplay').style.display = 'none';
+
+            if (names.length === 0) {
+                alert('이름을 입력해주세요!');
+                document.getElementById('dropBtn').disabled = true;
+                marblesCreated = false;
+                return;
+            }
+
+            // 게이트 다시 추가 (제거되었을 경우 대비)
+            const existingGate = Composite.allBodies(engine.world).find(b => b.label === 'gate');
+            if (!existingGate) {
+                Composite.add(engine.world, gate);
+            }
 
             names.forEach((name, i) => {
                 const ball = Bodies.circle(180 + (Math.random() * 40), 30, 9, {
@@ -272,24 +307,81 @@
                 });
                 Composite.add(engine.world, ball);
             });
+
+            marblesCreated = true;
+            document.getElementById('dropBtn').disabled = false;
         }
 
         function saveData() {
-            const config = { names: document.getElementById('nameInput').value, winType: document.querySelector('input[name="winType"]:checked').value };
+            const inputValue = document.getElementById('nameInput').value.trim();
+            if (!inputValue) {
+                alert('이름을 입력해주세요!');
+                return;
+            }
+
+            const config = { 
+                names: inputValue, 
+                winType: document.querySelector('input[name="winType"]:checked').value,
+                shouldSetup: true
+            };
             db.ref(`rooms/${roomId}/config`).set(config);
             db.ref(`rooms/${roomId}/drop`).set(null);
         }
 
-        function triggerDrop() { db.ref(`rooms/${roomId}/drop`).set(Date.now()); }
+        function triggerDrop() { 
+            if (marblesCreated) {
+                db.ref(`rooms/${roomId}/drop`).set(Date.now()); 
+            }
+        }
+
+        function resetGame() {
+            db.ref(`rooms/${roomId}/reset`).set(Date.now());
+        }
+
+        function performReset() {
+            // 모든 구슬 제거
+            const balls = Composite.allBodies(engine.world).filter(b => !b.isStatic && b.label !== 'gate');
+            balls.forEach(b => Composite.remove(engine.world, b));
+            
+            // 게이트 다시 추가
+            const existingGate = Composite.allBodies(engine.world).find(b => b.label === 'gate');
+            if (!existingGate) {
+                Composite.add(engine.world, gate);
+            }
+            
+            // 결과 숨기기
+            document.getElementById('resultDisplay').style.display = 'none';
+            
+            // 상태 초기화
+            isRunning = false;
+            marblesCreated = false;
+            names = [];
+            
+            // 버튼 비활성화
+            document.getElementById('dropBtn').disabled = true;
+            
+            // 입력창 초기화
+            document.getElementById('nameInput').value = '';
+            
+            // Firebase 데이터 초기화
+            db.ref(`rooms/${roomId}/config`).set(null);
+            db.ref(`rooms/${roomId}/drop`).set(null);
+        }
 
         function startRace() {
-            if (isRunning) return;
+            if (isRunning || !marblesCreated) return;
             isRunning = true;
-            Composite.remove(engine.world, gate); 
+            
+            // 게이트 제거
+            const gateBody = Composite.allBodies(engine.world).find(b => b.label === 'gate');
+            if (gateBody) {
+                Composite.remove(engine.world, gateBody);
+            }
+            
             let finished = 0;
             const total = names.length;
             const check = setInterval(() => {
-                const balls = Composite.allBodies(engine.world).filter(b => !b.isStatic);
+                const balls = Composite.allBodies(engine.world).filter(b => !b.isStatic && b.label !== 'gate');
                 balls.forEach(ball => {
                     if (ball.position.y > 1580 && !ball.isDone) {
                         ball.isDone = true;
@@ -298,7 +390,10 @@
                         else if (winCondition === 'last' && finished === total) showWinner(ball.label);
                     }
                 });
-                if (finished === total) { clearInterval(check); isRunning = false; Composite.add(engine.world, gate); }
+                if (finished === total) { 
+                    clearInterval(check); 
+                    isRunning = false; 
+                }
             }, 100);
         }
 

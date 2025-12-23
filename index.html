@@ -90,14 +90,14 @@
     <script>
         // === [설정] Firebase Config ===
         const firebaseConfig = {
-            apiKey: "YOUR_API_KEY",
-            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-            databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
-            projectId: "YOUR_PROJECT_ID",
-            storageBucket: "YOUR_PROJECT_ID.appspot.com",
-            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-            appId: "YOUR_APP_ID"
-        };
+  apiKey: "AIzaSyBWAt4N6PIoY-ZrZQxbqsxauOF0TBcHZ-E",
+  authDomain: "random-game-22f1a.firebaseapp.com",
+  databaseURL: "https://random-game-22f1a-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "random-game-22f1a",
+  storageBucket: "random-game-22f1a.firebasestorage.app",
+  messagingSenderId: "1091564497932",
+  appId: "1:1091564497932:web:a16dc96fb998166dea9229"
+};
         // ============================
 
         firebase.initializeApp(firebaseConfig);
@@ -357,14 +357,16 @@
         function deleteObjectAt(x, y) {
             const bodies = Composite.allBodies(engine.world);
             for (let body of bodies) {
-                if (body.label !== 'custom') continue;
-                
+        // 'custom'뿐만 아니라 'default'도 삭제 가능하게 변경
+        // 단, 'boundary'(외곽 벽)와 'gate'는 삭제 불가
+                if (body.label !== 'custom' && body.label !== 'default') continue;
+        
                 const bounds = body.bounds;
                 if (x >= bounds.min.x && x <= bounds.max.x && 
                     y >= bounds.min.y && y <= bounds.max.y) {
                     Composite.remove(engine.world, body);
-                    
-                    // 회전판 목록에서도 제거
+            
+            // 회전판 목록에서도 제거
                     const spinnerIndex = spinners.findIndex(s => s.body === body);
                     if (spinnerIndex !== -1) {
                         spinners.splice(spinnerIndex, 1);
@@ -450,8 +452,9 @@
 
         function clearCustomMap() {
             const bodies = Composite.allBodies(engine.world);
-            const customBodies = bodies.filter(b => b.label === 'custom');
-            customBodies.forEach(body => {
+    // 'custom'과 'default' 모두 삭제
+            const deletableBodies = bodies.filter(b => b.label === 'custom' || b.label === 'default');
+            deletableBodies.forEach(body => {
                 Composite.remove(engine.world, body);
                 const spinnerIndex = spinners.findIndex(s => s.body === body);
                 if (spinnerIndex !== -1) {
@@ -459,7 +462,6 @@
                 }
             });
         }
-
         // 회전판 애니메이션 + 구슬 갇힘 방지
         Events.on(engine, 'beforeUpdate', () => {
             spinners.forEach(s => {

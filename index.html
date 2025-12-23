@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>실시간 구슬 레이스 (Marble Run)</title>
+    <title>실시간 구슬 레이스 - 커스텀 맵</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.18.0/matter.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-database.js"></script>
@@ -10,13 +10,13 @@
         body { margin: 0; background: #1a1a1b; color: white; font-family: 'Pretendard', sans-serif; display: flex; flex-direction: column; align-items: center; min-height: 100vh; overflow: hidden; }
         #game-container { position: relative; width: 500px; height: 600px; background: #222; border: 5px solid #333; margin-top: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
         .controls { background: #333; padding: 15px; border-radius: 10px; width: 470px; margin-top: 10px; z-index: 100; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
-        textarea { width: 100%; height: 50px; background: #111; color: white; border: 1px solid #444; padding: 8px; box-sizing: border-box; border-radius: 5px; margin-bottom: 10px; }
+        textarea { width: 100%; height: 50px; background: #111; color: white; border: 1px solid #444; padding: 8px; box-sizing: border-box; border-radius: 5px; margin-bottom: 10px; resize: none; }
         .option-group { display: flex; justify-content: space-around; background: #222; padding: 10px; border-radius: 5px; margin-bottom: 10px; }
         .option-group label { cursor: pointer; display: flex; align-items: center; gap: 5px; font-weight: bold; }
         button { width: 100%; padding: 12px; margin-top: 5px; cursor: pointer; font-weight: bold; border: none; border-radius: 5px; transition: 0.2s; }
         #dropBtn { background: #5865F2; color: white; font-size: 1.1rem; }
         #saveBtn { background: #3ba55c; color: white; }
-        #resultDisplay { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); font-size: 3.5rem; font-weight: bold; pointer-events: none; text-shadow: 0 0 20px gold; color: gold; display: none; z-index: 10; text-align: center; width: 100%; }
+        #resultDisplay { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); font-size: 3.5rem; font-weight: bold; pointer-events: none; text-shadow: 0 0 20px gold; color: gold; display: none; z-index: 10; text-align: center; width: 100%; white-space: pre-wrap; }
         .room-info { font-size: 12px; color: #888; margin-bottom: 5px; display: flex; justify-content: space-between; }
     </style>
 </head>
@@ -42,7 +42,7 @@
     </div>
 
     <script>
-        // === [설정] Firebase 설정값을 넣으세요 ===
+        // === [설정] Firebase 설정값을 여기에 붙여넣으세요 ===
         const firebaseConfig = {
   apiKey: "AIzaSyBWAt4N6PIoY-ZrZQxbqsxauOF0TBcHZ-E",
   authDomain: "random-game-22f1a.firebaseapp.com",
@@ -52,7 +52,7 @@
   messagingSenderId: "1091564497932",
   appId: "1:1091564497932:web:a16dc96fb998166dea9229"
 };
-        // =====================================
+        // ===============================================
 
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
@@ -71,41 +71,65 @@
             options: { width: 500, height: 600, wireframes: false, background: '#222' }
         });
 
-        // 벽 및 장애물
+        // 1. 외곽 벽 생성
         const wallOptions = { isStatic: true, render: { fillStyle: '#444' } };
         Composite.add(engine.world, [
-            Bodies.rectangle(250, 610, 500, 20, wallOptions),
-            Bodies.rectangle(-10, 300, 20, 600, wallOptions),
-            Bodies.rectangle(510, 300, 20, 600, wallOptions)
+            Bodies.rectangle(250, 610, 500, 20, wallOptions), // 바닥
+            Bodies.rectangle(-10, 300, 20, 600, wallOptions), // 왼쪽 벽
+            Bodies.rectangle(510, 300, 20, 600, wallOptions)  // 오른쪽 벽
         ]);
 
-        for (let row = 0; row < 7; row++) {
-            for (let col = 0; col < 9; col++) {
-                let x = col * 55 + (row % 2 === 0 ? 30 : 55);
-                let y = row * 70 + 130;
-                if (x < 480) Composite.add(engine.world, Bodies.circle(x, y, 4, { isStatic: true, render: { fillStyle: '#666' } }));
+        // 2. 가이드 라인 (구슬을 중앙 핀 지대로 유도)
+        const guideOptions = { isStatic: true, render: { fillStyle: '#333' } };
+        Composite.add(engine.world, [
+            Bodies.rectangle(80, 180, 220, 10, { ...guideOptions, angle: Math.PI / 4 }),
+            Bodies.rectangle(420, 180, 220, 10, { ...guideOptions, angle: -Math.PI / 4 })
+        ]);
+
+        // 3. 다이아몬드형 핀(Peg) 배치
+        const rows = 8;
+        const spacingX = 48;
+        const spacingY = 50;
+        const startY = 220;
+
+        for (let i = 0; i < rows; i++) {
+            const pinsInRow = i < 4 ? 4 + i : 10 - i; 
+            const rowWidth = (pinsInRow - 1) * spacingX;
+            const startX = (500 - rowWidth) / 2;
+
+            for (let j = 0; j < pinsInRow; j++) {
+                const x = startX + j * spacingX;
+                const y = startY + i * spacingY;
+                Composite.add(engine.world, Bodies.circle(x, y, 4, { 
+                    isStatic: true, 
+                    restitution: 1.3, // 탄성 높임
+                    render: { fillStyle: '#777' } 
+                }));
             }
         }
 
-        // 입구 막는 바 (시작 전까지 구슬을 가둠)
-        const gate = Bodies.rectangle(250, 80, 500, 10, { isStatic: true, render: { visible: false } });
+        // 4. 입구 게이트 (시작 전 대기 바닥)
+        const gate = Bodies.rectangle(250, 115, 500, 10, { isStatic: true, render: { visible: false } });
         Composite.add(engine.world, gate);
 
         Render.run(render);
         Runner.run(Runner.create(), engine);
 
-        // 이름표 그리기 (구슬 위에 고정)
+        // 5. 이름표 렌더링 (구슬 위에 둥둥 떠있게)
         Events.on(render, 'afterRender', () => {
             const ctx = render.context;
             ctx.font = "bold 13px sans-serif";
             ctx.textAlign = "center";
             Composite.allBodies(engine.world).forEach(body => {
                 if (body.label && body.label !== 'Body' && !body.isStatic) {
-                    ctx.fillStyle = "rgba(0,0,0,0.5)";
+                    const { x, y } = body.position;
+                    // 배경박스
+                    ctx.fillStyle = "rgba(0,0,0,0.6)";
                     const txtWidth = ctx.measureText(body.label).width;
-                    ctx.fillRect(body.position.x - txtWidth/2 - 4, body.position.y - 32, txtWidth + 8, 18);
+                    ctx.fillRect(x - txtWidth/2 - 5, y - 35, txtWidth + 10, 20);
+                    // 텍스트
                     ctx.fillStyle = "white";
-                    ctx.fillText(body.label, body.position.x, body.position.y - 18);
+                    ctx.fillText(body.label, x, y - 20);
                 }
             });
         });
@@ -114,7 +138,7 @@
         let winCondition = 'first';
         let isRunning = false;
 
-        // Firebase 감시
+        // Firebase 리스너
         db.ref(`rooms/${roomId}/config`).on('value', snap => {
             const val = snap.val();
             if (val) {
@@ -122,7 +146,7 @@
                 winCondition = val.winType || 'first';
                 document.querySelector(`input[value="${winCondition}"]`).checked = true;
                 parseNames(val.names);
-                setupMarbles(); // 설정 변경 시 구슬 즉시 세팅
+                setupMarbles(); 
             }
         });
 
@@ -141,7 +165,6 @@
             });
         }
 
-        // 구슬 대기 상태로 세팅
         function setupMarbles() {
             if (isRunning) return;
             const existing = Composite.allBodies(engine.world).filter(b => !b.isStatic);
@@ -149,9 +172,9 @@
             document.getElementById('resultDisplay').style.display = 'none';
 
             names.forEach((name, i) => {
-                const ball = Bodies.circle(100 + (Math.random() * 300), 40, 12, {
-                    restitution: 0.5, friction: 0.01, label: name,
-                    render: { fillStyle: `hsl(${Math.random() * 360}, 70%, 60%)` }
+                const ball = Bodies.circle(150 + (Math.random() * 200), 50 + (Math.random() * 40), 12, {
+                    restitution: 0.7, friction: 0.005, label: name,
+                    render: { fillStyle: `hsl(${Math.random() * 360}, 75%, 60%)` }
                 });
                 Composite.add(engine.world, ball);
             });
@@ -163,7 +186,7 @@
                 winType: document.querySelector('input[name="winType"]:checked').value
             };
             db.ref(`rooms/${roomId}/config`).set(config);
-            db.ref(`rooms/${roomId}/drop`).set(null); // 이전 결과 초기화
+            db.ref(`rooms/${roomId}/drop`).set(null); 
         }
 
         function triggerDrop() {
@@ -173,14 +196,14 @@
         function startRace() {
             if (isRunning) return;
             isRunning = true;
-            Composite.remove(engine.world, gate); // 가로막던 바 제거
+            Composite.remove(engine.world, gate); 
 
             let finishedCount = 0;
             const total = names.length;
             const check = setInterval(() => {
                 const balls = Composite.allBodies(engine.world).filter(b => !b.isStatic);
                 balls.forEach(ball => {
-                    if (ball.position.y > 580 && !ball.isDone) {
+                    if (ball.position.y > 585 && !ball.isDone) {
                         ball.isDone = true;
                         finishedCount++;
                         if (winCondition === 'first' && finishedCount === 1) showWinner(ball.label);
@@ -190,14 +213,14 @@
                 if (finishedCount === total) {
                     clearInterval(check);
                     isRunning = false;
-                    Composite.add(engine.world, gate); // 다음 판을 위해 다시 설치
+                    Composite.add(engine.world, gate); 
                 }
             }, 100);
         }
 
         function showWinner(name) {
             const res = document.getElementById('resultDisplay');
-            res.innerText = `🏆 당첨\n${name}`;
+            res.innerText = `🏆 당첨 🏆\n${name}`;
             res.style.display = 'block';
         }
     </script>

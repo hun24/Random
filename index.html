@@ -750,48 +750,6 @@
             res.innerText = `🏆 당첨 🏆\n${name}`;
             res.style.display = 'block';
         }
-
-        // 페이지 로드 시 저장된 맵 자동 불러오기
-        window.addEventListener('load', () => {
-            db.ref(`rooms/${roomId}/customMap`).once('value', snap => {
-                const customObjects = snap.val();
-                if (customObjects) {
-                    customObjects.forEach(obj => {
-                        let body;
-                        if (obj.type === 'wall') {
-                            body = Bodies.rectangle(obj.x, obj.y, obj.width, obj.height, {
-                                isStatic: true,
-                                angle: obj.angle,
-                                render: { fillStyle: '#00ff00' },
-                                friction: 0.001,
-                                label: 'custom'
-                            });
-                            Composite.add(engine.world, body);
-                        } else if (obj.type === 'spinner') {
-                            body = Bodies.rectangle(obj.x, obj.y, obj.width, obj.height, {
-                                isStatic: true,
-                                angle: obj.angle,
-                                render: { fillStyle: '#ffff00' },
-                                chamfer: { radius: 3 },
-                                friction: 0,
-                                frictionStatic: 0,
-                                label: 'custom'
-                            });
-                            spinners.push({ body: body, speed: obj.speed, type: 'rect' });
-                            Composite.add(engine.world, body);
-                        } else if (obj.type === 'pin') {
-                            body = Bodies.circle(obj.x, obj.y, obj.radius, {
-                                isStatic: true,
-                                render: { fillStyle: '#ff00ff' },
-                                restitution: 0.5,
-                                label: 'custom'
-                            });
-                            Composite.add(engine.world, body);
-                        }
-                    });
-                }
-            });
-        });
     </script>
 </body>
 </html>

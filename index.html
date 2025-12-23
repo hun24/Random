@@ -2,13 +2,13 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>실시간 구슬 레이스 - 커스텀 맵</title>
+    <title>실시간 구슬 레이스 - 익스트림 맵</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.18.0/matter.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-database.js"></script>
     <style>
         body { margin: 0; background: #1a1a1b; color: white; font-family: 'Pretendard', sans-serif; display: flex; flex-direction: column; align-items: center; min-height: 100vh; overflow: hidden; }
-        #game-container { position: relative; width: 500px; height: 600px; background: #222; border: 5px solid #333; margin-top: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+        #game-container { position: relative; width: 500px; height: 800px; background: #222; border: 5px solid #333; margin-top: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
         .controls { background: #333; padding: 15px; border-radius: 10px; width: 470px; margin-top: 10px; z-index: 100; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
         textarea { width: 100%; height: 50px; background: #111; color: white; border: 1px solid #444; padding: 8px; box-sizing: border-box; border-radius: 5px; margin-bottom: 10px; resize: none; }
         .option-group { display: flex; justify-content: space-around; background: #222; padding: 10px; border-radius: 5px; margin-bottom: 10px; }
@@ -42,7 +42,7 @@
     </div>
 
     <script>
-        // === [설정] Firebase 설정값을 여기에 붙여넣으세요 ===
+        // === [설정] Firebase 설정값을 입력하세요 ===
         const firebaseConfig = {
   apiKey: "AIzaSyBWAt4N6PIoY-ZrZQxbqsxauOF0TBcHZ-E",
   authDomain: "random-game-22f1a.firebaseapp.com",
@@ -52,7 +52,7 @@
   messagingSenderId: "1091564497932",
   appId: "1:1091564497932:web:a16dc96fb998166dea9229"
 };
-        // ===============================================
+        // =====================================
 
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
@@ -68,54 +68,72 @@
         const render = Render.create({
             element: document.getElementById('game-container'),
             engine: engine,
-            options: { width: 500, height: 600, wireframes: false, background: '#222' }
+            options: { width: 500, height: 800, wireframes: false, background: '#1a1a1b' }
         });
 
-        // 1. 외곽 벽 생성
-        const wallOptions = { isStatic: true, render: { fillStyle: '#444' } };
+        const wallOptions = { isStatic: true, render: { fillStyle: '#333' } };
+        
+        // 1. 더 길어진 맵 벽 설정
         Composite.add(engine.world, [
-            Bodies.rectangle(250, 610, 500, 20, wallOptions), // 바닥
-            Bodies.rectangle(-10, 300, 20, 600, wallOptions), // 왼쪽 벽
-            Bodies.rectangle(510, 300, 20, 600, wallOptions)  // 오른쪽 벽
+            Bodies.rectangle(250, 810, 500, 20, wallOptions), // 바닥
+            Bodies.rectangle(-10, 400, 20, 800, wallOptions), // 왼쪽 벽
+            Bodies.rectangle(510, 400, 20, 800, wallOptions)  // 오른쪽 벽
         ]);
 
-        // 2. 가이드 라인 (구슬을 중앙 핀 지대로 유도)
-        const guideOptions = { isStatic: true, render: { fillStyle: '#333' } };
+        // 2. 옆길 차단 가이드라인 (깔때기 구조)
         Composite.add(engine.world, [
-            Bodies.rectangle(80, 180, 220, 10, { ...guideOptions, angle: Math.PI / 4 }),
-            Bodies.rectangle(420, 180, 220, 10, { ...guideOptions, angle: -Math.PI / 4 })
+            Bodies.rectangle(80, 150, 250, 15, { ...wallOptions, angle: Math.PI / 4 }),
+            Bodies.rectangle(420, 150, 250, 15, { ...wallOptions, angle: -Math.PI / 4 }),
+            Bodies.rectangle(50, 450, 200, 15, { ...wallOptions, angle: Math.PI / 6 }),
+            Bodies.rectangle(450, 450, 200, 15, { ...wallOptions, angle: -Math.PI / 6 })
         ]);
 
-        // 3. 다이아몬드형 핀(Peg) 배치
-        const rows = 8;
-        const spacingX = 48;
-        const spacingY = 50;
-        const startY = 220;
+        // 3. 다이아몬드형 핀 배치
+        const rows = 10;
+        const spacingX = 50;
+        const spacingY = 60;
+        const startY = 250;
 
         for (let i = 0; i < rows; i++) {
-            const pinsInRow = i < 4 ? 4 + i : 10 - i; 
+            const pinsInRow = i % 2 === 0 ? 7 : 6;
             const rowWidth = (pinsInRow - 1) * spacingX;
             const startX = (500 - rowWidth) / 2;
 
             for (let j = 0; j < pinsInRow; j++) {
-                const x = startX + j * spacingX;
-                const y = startY + i * spacingY;
-                Composite.add(engine.world, Bodies.circle(x, y, 4, { 
-                    isStatic: true, 
-                    restitution: 1.3, // 탄성 높임
-                    render: { fillStyle: '#777' } 
+                Composite.add(engine.world, Bodies.circle(startX + j * spacingX, startY + i * spacingY, 5, { 
+                    isStatic: true, restitution: 1.2, render: { fillStyle: '#666' } 
                 }));
             }
         }
 
-        // 4. 입구 게이트 (시작 전 대기 바닥)
-        const gate = Bodies.rectangle(250, 115, 500, 10, { isStatic: true, render: { visible: false } });
+        // 4. 돌아가는 판 (Spinners) 추가
+        const spinners = [];
+        const createSpinner = (x, y, length) => {
+            const s = Bodies.rectangle(x, y, length, 10, { isStatic: true, render: { fillStyle: '#5865F2' } });
+            spinners.push(s);
+            Composite.add(engine.world, s);
+        };
+
+        createSpinner(150, 400, 80);
+        createSpinner(350, 400, 80);
+        createSpinner(250, 550, 100);
+        createSpinner(100, 650, 70);
+        createSpinner(400, 650, 70);
+
+        // 5. 입구 게이트
+        const gate = Bodies.rectangle(250, 95, 500, 10, { isStatic: true, render: { visible: false } });
         Composite.add(engine.world, gate);
 
         Render.run(render);
         Runner.run(Runner.create(), engine);
 
-        // 5. 이름표 렌더링 (구슬 위에 둥둥 떠있게)
+        // 매 프레임마다 스피너 회전 및 이름표 렌더링
+        Events.on(engine, 'beforeUpdate', () => {
+            spinners.forEach(s => {
+                Body.setAngle(s, s.angle + 0.05); // 회전 속도 조절
+            });
+        });
+
         Events.on(render, 'afterRender', () => {
             const ctx = render.context;
             ctx.font = "bold 13px sans-serif";
@@ -123,11 +141,9 @@
             Composite.allBodies(engine.world).forEach(body => {
                 if (body.label && body.label !== 'Body' && !body.isStatic) {
                     const { x, y } = body.position;
-                    // 배경박스
                     ctx.fillStyle = "rgba(0,0,0,0.6)";
                     const txtWidth = ctx.measureText(body.label).width;
                     ctx.fillRect(x - txtWidth/2 - 5, y - 35, txtWidth + 10, 20);
-                    // 텍스트
                     ctx.fillStyle = "white";
                     ctx.fillText(body.label, x, y - 20);
                 }
@@ -138,7 +154,6 @@
         let winCondition = 'first';
         let isRunning = false;
 
-        // Firebase 리스너
         db.ref(`rooms/${roomId}/config`).on('value', snap => {
             const val = snap.val();
             if (val) {
@@ -172,8 +187,8 @@
             document.getElementById('resultDisplay').style.display = 'none';
 
             names.forEach((name, i) => {
-                const ball = Bodies.circle(150 + (Math.random() * 200), 50 + (Math.random() * 40), 12, {
-                    restitution: 0.7, friction: 0.005, label: name,
+                const ball = Bodies.circle(150 + (Math.random() * 200), 40 + (Math.random() * 40), 12, {
+                    restitution: 0.6, friction: 0.005, label: name,
                     render: { fillStyle: `hsl(${Math.random() * 360}, 75%, 60%)` }
                 });
                 Composite.add(engine.world, ball);
@@ -203,7 +218,7 @@
             const check = setInterval(() => {
                 const balls = Composite.allBodies(engine.world).filter(b => !b.isStatic);
                 balls.forEach(ball => {
-                    if (ball.position.y > 585 && !ball.isDone) {
+                    if (ball.position.y > 780 && !ball.isDone) {
                         ball.isDone = true;
                         finishedCount++;
                         if (winCondition === 'first' && finishedCount === 1) showWinner(ball.label);

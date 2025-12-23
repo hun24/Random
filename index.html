@@ -2,82 +2,163 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>실시간 룰렛 공유</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가로형 실시간 룰렛</title>
+    
     <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-database.js"></script>
+
     <style>
-        body { font-family: 'Pretendard', sans-serif; text-align: center; background-color: #2f3136; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
-        h1 { color: #5865F2; margin-bottom: 10px; }
-        
-        canvas { border: 5px solid #202225; border-radius: 50%; box-shadow: 0 4px 15px rgba(0,0,0,0.5); margin-bottom: 20px;}
-        
-        .arrow {
-            width: 0; height: 0; 
-            border-left: 15px solid transparent;
-            border-right: 15px solid transparent;
-            border-top: 30px solid #ff4444;
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background-color: #1a1a1a;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow-x: hidden;
+        }
+
+        h1 { color: #5865F2; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 2px; }
+
+        /* === 룰렛 디자인 (가로형) === */
+        .roulette-wrapper {
+            position: relative;
+            width: 90%;
+            max-width: 800px;
+            height: 160px;
+            background: #000;
+            border: 4px solid #333;
+            border-radius: 10px;
+            overflow: hidden; /* 넘치는 부분 숨김 */
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        /* 중앙 기준선 */
+        .marker {
             position: absolute;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -240px);
+            left: 50%;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: #ff4444;
+            transform: translateX(-50%);
             z-index: 10;
+            box-shadow: 0 0 10px #ff0000;
         }
-        .container { position: relative; }
+        .marker::before {
+            content: "▼";
+            position: absolute;
+            top: 5px; left: 50%;
+            transform: translateX(-50%);
+            color: #ff4444; font-size: 20px;
+        }
 
-        /* 입력창 및 버튼 디자인 */
-        .controls { background: #40444b; padding: 20px; border-radius: 10px; width: 320px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); margin-top: 20px; }
-        textarea { width: 100%; height: 80px; margin-bottom: 10px; padding: 10px; border: none; border-radius: 5px; background: #202225; color: white; resize: none; font-family: inherit; font-size: 14px; }
-        
-        .btn-group { display: flex; gap: 10px; margin-bottom: 10px; }
-        button { flex: 1; padding: 10px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; transition: 0.2s; }
-        
-        #spinBtn { background-color: #5865F2; color: white; width: 100%; margin-top: 10px; font-size: 18px; padding: 15px; }
-        #spinBtn:hover { background-color: #4752c4; }
-        #spinBtn:disabled { background-color: #6a718c; cursor: not-allowed; } /* 비활성화 버튼 스타일 */
+        /* 움직이는 트랙 */
+        .roulette-track {
+            display: flex;
+            height: 100%;
+            align-items: center;
+            /* 초기 위치: 약간 왼쪽으로 이동 */
+            transform: translateX(0px); 
+            will-change: transform; /* 성능 최적화 */
+        }
 
-        #updateAndSaveBtn { background-color: #3ba55c; color: white; } /* 초록색: 화면 적용 및 저장 */
-        
-        p { font-size: 12px; color: #b9bbbe; margin-top: 5px; }
-        .room-id { font-size: 14px; margin-bottom: 15px; color: #b9bbbe; }
-        .room-id a { color: #5865F2; text-decoration: none; font-weight: bold; }
-        .room-id a:hover { text-decoration: underline; }
-
-        #resultDisplay {
-            margin-top: 20px;
-            font-size: 24px;
+        /* 개별 카드 디자인 */
+        .card {
+            min-width: 120px;
+            height: 120px;
+            margin: 0 5px;
+            background: #2f3136;
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 18px;
             font-weight: bold;
-            color: #fce205; /* 밝은 노란색 */
-            text-shadow: 0 0 10px rgba(255, 255, 0, 0.7);
-            height: 30px; /* 공간 확보 */
+            color: #ddd;
+            border-bottom: 4px solid #5865F2;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+            text-align: center;
+            word-break: keep-all;
+            padding: 5px;
         }
+
+        /* 결과 표시 */
+        #resultDisplay {
+            height: 40px;
+            font-size: 28px;
+            font-weight: bold;
+            color: #fce205;
+            text-shadow: 0 0 15px rgba(255, 215, 0, 0.6);
+            margin-bottom: 20px;
+        }
+
+        /* 컨트롤 패널 */
+        .controls {
+            background: #2c2f33;
+            padding: 20px;
+            border-radius: 10px;
+            width: 320px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+        textarea {
+            width: 100%; height: 60px;
+            margin-bottom: 10px; padding: 10px;
+            border: none; border-radius: 5px;
+            background: #18191c; color: white;
+            resize: none; font-family: inherit;
+        }
+        .btn-group { display: flex; gap: 10px; }
+        button {
+            flex: 1; padding: 12px;
+            border: none; border-radius: 5px;
+            cursor: pointer; font-weight: bold; font-size: 14px;
+            transition: 0.2s;
+        }
+        #saveBtn { background-color: #3ba55c; color: white; }
+        #saveBtn:hover { background-color: #2d7d46; }
+        
+        #spinBtn {
+            background-color: #5865F2; color: white; width: 100%;
+            margin-top: 10px; font-size: 18px; padding: 15px;
+        }
+        #spinBtn:hover { background-color: #4752c4; }
+        #spinBtn:disabled { background-color: #555; cursor: not-allowed; }
+
+        .room-info { font-size: 13px; color: #888; margin-bottom: 10px; }
+        a { color: #5865F2; text-decoration: none; }
     </style>
 </head>
 <body>
 
-    <h1>🎰 실시간 룰렛 공유</h1>
-    <div class="room-id">
-        현재 방: <span id="currentRoomId"></span> - <a href="#" id="shareLink" onclick="copyShareLink()">링크 복사</a>
-    </div>
-    
-    <div class="container">
-        <div class="arrow"></div>
-        <canvas id="wheel" width="400" height="400"></canvas>
+    <h1>🏆 랜덤 뽑기</h1>
+    <div class="room-info">방 ID: <span id="currentRoomId">...</span> (<a href="#" onclick="copyLink()">링크 복사</a>)</div>
+
+    <div class="roulette-wrapper">
+        <div class="marker"></div>
+        <div class="roulette-track" id="track">
+            </div>
     </div>
 
     <div id="resultDisplay"></div>
 
     <div class="controls">
-        <textarea id="itemsInput" placeholder="이름을 쉼표(,)로 구분해서 입력 (예: 철수*2, 영희)"></textarea>
-        
+        <textarea id="itemsInput" placeholder="이름 입력 (예: 철수, 영희*3, 민수)"></textarea>
         <div class="btn-group">
-            <button id="updateAndSaveBtn" onclick="updateAndSaveItems()">✅ 저장 & 룰렛 반영</button>
+            <button id="saveBtn" onclick="saveItems()">✅ 저장 & 동기화</button>
         </div>
-        <p>⚠️ 변경사항은 저장해야 다른 사람들과 공유됩니다.</p>
-
-        <button id="spinBtn" onclick="startSpin()">🔥 돌리기 시작!</button>
+        <button id="spinBtn" onclick="startSpin()">🔥 돌리기</button>
     </div>
 
     <script>
-        // ★★★ 여기에 Firebase Config 객체를 붙여넣으세요 
+        // ========================================================
+        // [설정] 여기에 Firebase Config 객체를 붙여넣으세요 
+        // ========================================================
         const firebaseConfig = {
           apiKey: "AIzaSyBWAt4N6PIoY-ZrZQxbqsxauOF0TBcHZ-E",
           authDomain: "random-game-22f1a.firebaseapp.com",
@@ -88,247 +169,194 @@
           appId: "1:1091564497932:web:a16dc96fb998166dea9229"
         };
         // ========================================================
-        
-        // Firebase 초기화
+
+        // 초기화
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
 
-        // 룰렛 관련 DOM 요소
-        const canvas = document.getElementById('wheel');
-        const ctx = canvas.getContext('2d');
+        // 변수 설정
+        const track = document.getElementById('track');
         const itemsInput = document.getElementById('itemsInput');
         const spinBtn = document.getElementById('spinBtn');
         const resultDisplay = document.getElementById('resultDisplay');
+        
+        // 룰렛 설정값
+        const CARD_WIDTH = 130; // 카드 너비(margin 포함)
+        const REPEAT_COUNT = 100; // 룰렛 길이를 위해 리스트 반복 횟수
+        let items = [];
+        let isSpinning = false;
 
-        // 룰렛 상태 변수
-        let items = []; // 실제 룰렛에 그려질 아이템 리스트 (중복 처리된)
-        let rawItemsString = ""; // Firebase에 저장될, 사용자가 입력한 원본 문자열
-        let startAngle = 0;
-        let arc = 0; // 각 섹션의 각도
-        let currentSpinRef = null; // 현재 진행 중인 스핀 데이터 레퍼런스
-        let animationFrameId = null; // 애니메이션 프레임 ID
-        let isSpinningLocal = false; // 현재 브라우저에서 스핀 애니메이션이 진행 중인지
-
-        const colors = ["#FF5733", "#33FF57", "#3357FF", "#F333FF", "#FF33A8", "#33FFF5", "#F5FF33"];
+        // 색상 팔레트 (카드 배경용)
+        const cardColors = ["#E74C3C", "#8E44AD", "#3498DB", "#1ABC9C", "#F1C40F", "#E67E22"];
 
         // ----------------- 방 ID 관리 -----------------
-        let roomId = getRoomIdFromUrl();
+        let roomId = new URLSearchParams(window.location.search).get('room');
         if (!roomId) {
-            roomId = generateRoomId();
-            window.history.pushState({}, '', `?room=${roomId}`); // URL에 방 ID 추가
+            roomId = Math.random().toString(36).substring(2, 8);
+            window.history.pushState({}, '', `?room=${roomId}`);
         }
-        document.getElementById('currentRoomId').textContent = roomId;
+        document.getElementById('currentRoomId').innerText = roomId;
 
-        function getRoomIdFromUrl() {
-            const urlParams = new URLSearchParams(window.location.search);
-            return urlParams.get('room');
-        }
-
-        function generateRoomId() {
-            return Math.random().toString(36).substring(2, 9); // 7자리 랜덤 ID
+        function copyLink() {
+            navigator.clipboard.writeText(window.location.href);
+            alert("링크가 복사되었습니다!");
         }
 
-        function copyShareLink() {
-            const shareUrl = window.location.href;
-            navigator.clipboard.writeText(shareUrl).then(() => {
-                alert('링크가 클립보드에 복사되었습니다: ' + shareUrl);
-            }).catch(err => {
-                console.error('링크 복사 실패:', err);
-            });
-        }
-
-        // ----------------- Firebase 데이터 리스너 -----------------
+        // ----------------- Firebase 감지 (Listen) -----------------
         const roomRef = database.ref('rooms/' + roomId);
 
-        // 참가자 목록 변경 감지
+        // 1. 아이템 목록 변경 감지
         roomRef.child('items').on('value', (snapshot) => {
             const data = snapshot.val();
             if (data) {
-                rawItemsString = data;
-                itemsInput.value = rawItemsString; // 입력창 업데이트
-                processAndDrawWheel(); // 룰렛 다시 그리기
-            } else {
-                itemsInput.value = "";
-                items = [];
-                drawWheel();
+                itemsInput.value = data;
+                updateItemsList(data);
+                initTrack(); // 트랙 초기화 (정렬)
             }
         });
 
-        // 룰렛 스핀 상태 변경 감지 (누군가 돌리기를 시작하면)
-        roomRef.child('currentSpin').on('value', (snapshot) => {
-            const spinData = snapshot.val();
-            if (spinData && spinData.spinning && !isSpinningLocal) {
-                // 다른 사람이 스핀 시작! 내 브라우저에서도 스핀 애니메이션 시작
-                startAngle = spinData.startAngle; // 시작 각도 동기화
-                spinAnimation(spinData.spinTimeTotal, spinData.spinAngleStart, spinData.finalAngle);
-                spinBtn.disabled = true;
-                resultDisplay.textContent = "";
-            } else if (!spinData && isSpinningLocal) {
-                // 스핀 데이터가 사라졌는데 나는 아직 스핀 중이면, 내 애니메이션도 멈춰야 함 (오류 복구)
-                cancelAnimationFrame(animationFrameId);
-                isSpinningLocal = false;
-                spinBtn.disabled = false;
-                resultDisplay.textContent = ""; // 결과 초기화
-                drawWheel(); // 멈춘 상태 그리기
-            } else if (spinData && !spinData.spinning && spinData.result && !isSpinningLocal) {
-                // 스핀이 이미 끝났고 결과가 있는데, 내가 뒤늦게 접속했거나 갱신된 경우
-                startAngle = spinData.finalAngle;
-                drawWheel();
-                resultDisplay.textContent = `🎉 당첨: ${spinData.result} 🎉`;
+        // 2. 스핀 명령 감지
+        roomRef.child('spinStatus').on('value', (snapshot) => {
+            const status = snapshot.val();
+            if (status && status.spinning && !isSpinning) {
+                // 스핀 시작 신호를 받음 -> 애니메이션 실행
+                performSpin(status.targetIndex, status.randomOffset);
+            } else if (status && !status.spinning) {
+                // 스핀 종료 상태 (새로고침한 사람들을 위해 결과 표시)
+                isSpinning = false;
                 spinBtn.disabled = false;
             }
         });
-        
-        // ----------------- 룰렛 그리기 로직 -----------------
-        function processAndDrawWheel() {
-            const val = itemsInput.value;
-            const raw = val.split(',').map(i => i.trim()).filter(i => i !== "");
-            
-            let processedItems = [];
+
+        // ----------------- 로직 함수들 -----------------
+
+        // 텍스트를 파싱해서 리스트로 변환 (별표 처리 포함)
+        function updateItemsList(text) {
+            const raw = text.split(',').map(s => s.trim()).filter(s => s !== "");
+            let newList = [];
             raw.forEach(item => {
                 if (item.includes('*')) {
-                    const [name, countStr] = item.split('*');
-                    const num = parseInt(countStr.trim());
-                    if (!isNaN(num) && num > 0) {
-                        for (let i = 0; i < num; i++) {
-                            processedItems.push(name.trim());
-                        }
-                    } else {
-                        processedItems.push(item);
-                    }
+                    const [name, count] = item.split('*');
+                    const num = parseInt(count);
+                    for(let i=0; i< (num||1); i++) newList.push(name.trim());
                 } else {
-                    processedItems.push(item);
+                    newList.push(item);
                 }
             });
-
-            items = processedItems; // 실제 룰렛에 쓰일 리스트 업데이트
-            drawWheel();
+            items = newList.length > 0 ? newList : ["대기중"];
         }
 
-        function drawWheel() {
-            if (items.length === 0) {
-                ctx.clearRect(0, 0, 400, 400);
-                return;
-            }
-            arc = Math.PI * 2 / items.length;
-            ctx.clearRect(0, 0, 400, 400);
-
-            for (let i = 0; i < items.length; i++) {
-                const angle = startAngle + i * arc;
-                ctx.fillStyle = colors[i % colors.length];
-                ctx.beginPath();
-                ctx.arc(200, 200, 200, angle, angle + arc, false);
-                ctx.arc(200, 200, 0, angle + arc, angle, true);
-                ctx.fill();
-                ctx.save();
-                ctx.fillStyle = "white";
-                ctx.translate(200 + Math.cos(angle + arc / 2) * 140, 200 + Math.sin(angle + arc / 2) * 140);
-                ctx.rotate(angle + arc / 2 + Math.PI / 2);
-                ctx.font = 'bold 16px Arial';
-                const text = items[i];
-                ctx.fillText(text, -ctx.measureText(text).width / 2, 0);
-                ctx.restore();
-            }
-        }
-
-        // ----------------- 사용자 액션 -----------------
-
-        // 입력창 내용 Firebase에 저장 (실시간 동기화)
-        function updateAndSaveItems() {
-            rawItemsString = itemsInput.value;
-            roomRef.child('items').set(rawItemsString)
-                .then(() => {
-                    alert("✅ 참가자 목록이 저장되고 동기화되었습니다!");
-                })
-                .catch(error => {
-                    console.error("Firebase 저장 실패:", error);
-                    alert("❌ 저장 실패! 인터넷 연결 확인 또는 Firebase 설정 오류.");
-                });
-        }
-
-        // 스핀 시작 버튼 클릭 시
-        function startSpin() {
-            if (isSpinningLocal) return; // 이미 스핀 중이면 무시
-            if (items.length === 0) { alert("참가자가 없습니다!"); return; }
-
-            spinBtn.disabled = true; // 버튼 비활성화
-            isSpinningLocal = true; // 현재 브라우저에서 스핀 시작 알림
-            resultDisplay.textContent = "";
-
-            const spinAngleStart = Math.random() * 10 + 10; 
-            const spinTimeTotal = Math.random() * 3000 + 4000; // 4~7초 회전
-
-            // 임시로 회전 후 최종 각도 계산
-            let tempStartAngle = startAngle;
-            let tempSpinTime = 0;
-            let tempFinalAngle = 0;
-
-            while(tempSpinTime < spinTimeTotal) {
-                const spinAngle = spinAngleStart - (spinAngleStart * (tempSpinTime / spinTimeTotal) * (tempSpinTime / spinTimeTotal)); 
-                tempStartAngle += (spinAngle * Math.PI / 180);
-                tempSpinTime += 30;
-            }
-            tempFinalAngle = tempStartAngle; // 계산된 최종 각도
-
-            // Firebase에 스핀 정보 기록 -> 모든 접속자에게 스핀 시작 신호 전달
-            roomRef.child('currentSpin').set({
-                spinning: true,
-                startAngle: startAngle, // 현재 내 시작 각도
-                spinAngleStart: spinAngleStart,
-                spinTimeTotal: spinTimeTotal,
-                timestamp: firebase.database.ServerValue.TIMESTAMP // 언제 시작했는지 기록
-            });
-
-            // 내 브라우저에서 스핀 애니메이션 시작
-            spinAnimation(spinTimeTotal, spinAngleStart, tempFinalAngle);
-        }
-
-        // 스핀 애니메이션 함수
-        function spinAnimation(spinTimeTotal, spinAngleStart, calculatedFinalAngle) {
-            let spinTime = 0;
-
-            function rotate() {
-                spinTime += 30;
-                if (spinTime >= spinTimeTotal) {
-                    stopSpin(calculatedFinalAngle);
-                    return;
-                }
-                const spinAngle = spinAngleStart - (spinAngleStart * (spinTime / spinTimeTotal) * (spinTime / spinTimeTotal)); 
-                startAngle += (spinAngle * Math.PI / 180);
-                drawWheel();
-                animationFrameId = requestAnimationFrame(rotate);
-            }
-            animationFrameId = requestAnimationFrame(rotate);
-        }
-
-        // 스핀 중지 및 결과 처리
-        function stopSpin(finalAngle) {
-            cancelAnimationFrame(animationFrameId);
-            startAngle = finalAngle; // 최종 각도로 고정
-            drawWheel();
-            isSpinningLocal = false; // 스핀 종료 알림
-
-            // 결과 계산 (화살표는 상단 270도/-90도 위치 기준)
-            const degrees = startAngle * 180 / Math.PI + 90;
-            const arcd = arc * 180 / Math.PI;
-            const index = Math.floor((360 - degrees % 360) % 360 / arcd);
-            const result = items[index];
-
-            resultDisplay.textContent = `🎉 당첨: ${result} 🎉`;
+        // 트랙에 카드 배치 (초기화)
+        function initTrack() {
+            if(isSpinning) return;
+            track.style.transition = 'none';
+            track.style.transform = 'translateX(0px)';
             
-            // Firebase에 결과 기록 및 스핀 상태 초기화 -> 모든 접속자에게 결과 전달
-            roomRef.child('currentSpin').set({
-                spinning: false,
-                result: result,
-                finalAngle: finalAngle, // 최종 각도 저장
-                timestamp: firebase.database.ServerValue.TIMESTAMP 
-            }).then(() => {
-                spinBtn.disabled = false; // 버튼 다시 활성화
+            track.innerHTML = ''; // 기존 카드 삭제
+
+            // 리스트를 반복해서 채워넣어 긴 띠를 만듦
+            // 중앙(화살표) 위치를 맞추기 위해 앞에 더미를 좀 둠
+            // 화면 너비의 절반만큼 패딩을 줘서 0번 인덱스가 중앙에 오게 함
+            const centerPadding = document.querySelector('.roulette-wrapper').offsetWidth / 2 - (CARD_WIDTH / 2);
+            
+            // 시각적 효과를 위해 많이 반복
+            let fullList = [];
+            for(let i=0; i<REPEAT_COUNT; i++) {
+                fullList = fullList.concat(items);
+            }
+
+            fullList.forEach((item, index) => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerText = item;
+                // 카드 색상을 이름에 따라 고정 (랜덤해 보이지만 같은 이름은 같은 색)
+                const colorIndex = item.charCodeAt(0) % cardColors.length;
+                card.style.borderBottomColor = cardColors[colorIndex];
+                card.style.color = "#fff";
+                track.appendChild(card);
+            });
+            
+            // 시작 위치: 첫 번째 카드가 중앙에 오도록
+             track.style.transform = `translateX(${centerPadding}px)`;
+        }
+
+        // 저장 버튼
+        function saveItems() {
+            const text = itemsInput.value;
+            roomRef.child('items').set(text);
+            alert("저장 완료!");
+        }
+
+        // 돌리기 버튼 (리더가 누름)
+        function startSpin() {
+            if (items.length < 2) { alert("최소 2개 이상의 항목이 필요합니다."); return; }
+            if (isSpinning) return;
+
+            // 1. 당첨 인덱스 계산 (트랙의 중간~끝 부분 사이 어딘가)
+            // 너무 초반에 멈추면 재미없으므로, 전체 길이의 70% ~ 90% 지점 사이에서 결정
+            const totalCards = items.length * REPEAT_COUNT;
+            const minIndex = Math.floor(totalCards * 0.7); 
+            const maxIndex = Math.floor(totalCards * 0.9);
+            const targetIndex = Math.floor(Math.random() * (maxIndex - minIndex + 1)) + minIndex;
+
+            // 2. 카드 내부 미세 위치 (정중앙이 아니라 약간 비껴가게) -50 ~ 50px
+            const randomOffset = Math.floor(Math.random() * 80) - 40; 
+
+            // 3. Firebase에 쏘기 (모두에게 이 위치로 이동하라고 명령)
+            roomRef.child('spinStatus').set({
+                spinning: true,
+                targetIndex: targetIndex,
+                randomOffset: randomOffset,
+                timestamp: Date.now()
             });
         }
 
-        // 초기화
-        processAndDrawWheel(); // 페이지 로드 시 룰렛 그리기
+        // 실제 애니메이션 실행 (모든 클라이언트 공통)
+        function performSpin(targetIndex, randomOffset) {
+            isSpinning = true;
+            spinBtn.disabled = true;
+            resultDisplay.innerText = "";
+            
+            // 트랙 다시 그리기 (싱크 맞추기 위해)
+            initTrack();
+
+            // 목표 위치 계산
+            // (화면중앙값) - (타겟카드의 위치) + (미세조정)
+            const wrapperWidth = document.querySelector('.roulette-wrapper').offsetWidth;
+            const centerPadding = wrapperWidth / 2 - (CARD_WIDTH / 2);
+            const moveDistance = -(targetIndex * CARD_WIDTH) + centerPadding + randomOffset;
+
+            // CSS Transition 설정 (천천히 멈추는 효과)
+            // cubic-bezier(0, 0, 0.2, 1) -> 처음에 빠르고 나중에 천천히
+            setTimeout(() => {
+                track.style.transition = 'transform 6s cubic-bezier(0.1, 0, 0.1, 1)';
+                track.style.transform = `translateX(${moveDistance}px)`;
+            }, 50); // 약간의 딜레이 후 실행
+
+            // 6초 후 결과 발표
+            setTimeout(() => {
+                isSpinning = false;
+                spinBtn.disabled = false;
+                
+                // 실제 당첨된 텍스트 찾기
+                const allCards = document.querySelectorAll('.card');
+                if(allCards[targetIndex]) {
+                    const winnerName = allCards[targetIndex].innerText;
+                    resultDisplay.innerText = `🎉 당첨: ${winnerName} 🎉`;
+                    
+                    // 폭죽 효과 (간단한 배경 색 깜빡임)
+                    document.body.style.backgroundColor = "#2a2a2a";
+                    setTimeout(() => document.body.style.backgroundColor = "#1a1a1a", 300);
+                }
+
+                // DB 상태 리셋 (다음 판을 위해)
+                // *주의: 여기서 리셋하면 다른 늦게 들어온 사람이 결과를 못 볼 수도 있으니
+                // 보통은 리셋하지 않거나, 스핀 시작할 때 덮어쓰는 방식을 씀.
+                // 여기서는 'spinning: false'로만 변경
+                roomRef.child('spinStatus').update({ spinning: false });
+
+            }, 6000); // transition 시간과 일치
+        }
     </script>
 </body>
 </html>

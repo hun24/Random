@@ -647,35 +647,37 @@
             
             let finished = 0;
             const total = names.length;
+            
             const check = setInterval(() => {
+                // 현재 월드에 존재하는 모든 동적 구슬들을 가져옴
                 const balls = Composite.allBodies(engine.world).filter(b => !b.isStatic && b.label !== 'gate');
                 
                 balls.forEach(ball => {
-                    // Y축 1595 이상 도달 시 (바닥 도착)
+                    // 구슬의 중심 Y 좌표가 1595를 넘으면 (바닥 근처 도달 시)
                     if (ball.position.y > 1595 && !ball.isDone) {
-                        ball.isDone = true;
+                        ball.isDone = true; // 중복 판정 방지
                         finished++;
 
-                        // 1. 승리자 표시 로직
+                        // 당첨자 판정 (첫 번째 또는 마지막)
                         if (winCondition === 'first' && finished === 1) {
                             showWinner(ball.label);
                         } else if (winCondition === 'last' && finished === total) {
                             showWinner(ball.label);
                         }
 
-                        // 2. 구슬 제거 (World에서 삭제하여 화면에서 사라지게 함)
+                        // [핵심] 닿은 즉시 해당 구슬만 제거
                         Composite.remove(engine.world, ball);
                     }
                 });
 
-                // 모든 구슬이 도착했거나 삭제되었다면 체크 중지
+                // 모든 구슬이 사라지면 루프 종료
                 if (finished === total) { 
                     clearInterval(check); 
                     isRunning = false; 
                 }
-            }, 100);
+            }, 50); // 반응 속도를 위해 체크 간격을 50ms로 단축
         }
-
+        
         function showWinner(name) {
             const res = document.getElementById('resultDisplay');
             res.innerText = `🏆 당첨 🏆\n${name}`;

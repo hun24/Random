@@ -57,7 +57,7 @@
 
         const { Engine, Render, Runner, Bodies, Composite, Events, Body } = Matter;
         const engine = Engine.create();
-        engine.gravity.y = 0.8;
+        engine.gravity.y = 1.0;
         
         const render = Render.create({
             element: document.getElementById('game-container'),
@@ -75,7 +75,7 @@
             Bodies.rectangle(405, 800, 10, 1600, wallOpt), // 오른벽
         ]);
 
-        // 상단 입구 - X자 제거하고 깔때기 형태로 수정
+        // 상단 입구 - 깔때기 형태
         Composite.add(engine.world, [
             Bodies.rectangle(80, 100, 140, 10, { ...wallOpt, angle: 0.4 }),
             Bodies.rectangle(320, 100, 140, 10, { ...wallOpt, angle: -0.4 }),
@@ -99,28 +99,30 @@
             Bodies.rectangle(270, 590, 8, 200, wallOpt),
         ]);
 
-        // 중앙 스피커 부분의 회전판들 (6개의 짧은 회전판)
+        // 중앙 스피커 부분의 회전판들 - 더 느리게, 더 작게
         const speakerSpinners = [
-            {x: 160, y: 460, w: 35, h: 6, speed: 0.05},
-            {x: 190, y: 460, w: 35, h: 6, speed: -0.05},
-            {x: 160, y: 500, w: 35, h: 6, speed: -0.05},
-            {x: 190, y: 500, w: 35, h: 6, speed: 0.05},
-            {x: 160, y: 540, w: 35, h: 6, speed: 0.05},
-            {x: 190, y: 540, w: 35, h: 6, speed: -0.05},
+            {x: 160, y: 460, w: 28, h: 5, speed: 0.03},
+            {x: 190, y: 460, w: 28, h: 5, speed: -0.03},
+            {x: 160, y: 500, w: 28, h: 5, speed: -0.03},
+            {x: 190, y: 500, w: 28, h: 5, speed: 0.03},
+            {x: 160, y: 540, w: 28, h: 5, speed: 0.03},
+            {x: 190, y: 540, w: 28, h: 5, speed: -0.03},
             
-            {x: 210, y: 460, w: 35, h: 6, speed: 0.05},
-            {x: 240, y: 460, w: 35, h: 6, speed: -0.05},
-            {x: 210, y: 500, w: 35, h: 6, speed: -0.05},
-            {x: 240, y: 500, w: 35, h: 6, speed: 0.05},
-            {x: 210, y: 540, w: 35, h: 6, speed: 0.05},
-            {x: 240, y: 540, w: 35, h: 6, speed: -0.05},
+            {x: 210, y: 460, w: 28, h: 5, speed: 0.03},
+            {x: 240, y: 460, w: 28, h: 5, speed: -0.03},
+            {x: 210, y: 500, w: 28, h: 5, speed: -0.03},
+            {x: 240, y: 500, w: 28, h: 5, speed: 0.03},
+            {x: 210, y: 540, w: 28, h: 5, speed: 0.03},
+            {x: 240, y: 540, w: 28, h: 5, speed: -0.03},
         ];
 
         speakerSpinners.forEach(s => {
             const spinner = Bodies.rectangle(s.x, s.y, s.w, s.h, {
                 isStatic: true,
                 render: { fillStyle: '#4a9eff' },
-                chamfer: { radius: 2 }
+                chamfer: { radius: 2 },
+                friction: 0,
+                frictionStatic: 0
             });
             spinners.push({ body: spinner, speed: s.speed, type: 'rect' });
             Composite.add(engine.world, spinner);
@@ -135,22 +137,24 @@
             Bodies.rectangle(320, 1100, 8, 200, wallOpt),
         ]);
 
-        // 중단 회전판들 (왼쪽-오른쪽 번갈아가며)
+        // 중단 회전판들 - 더 느리게, 더 짧게
         const middleSpinners = [
-            {x: 120, y: 750, w: 50, h: 8, speed: 0.06},
-            {x: 280, y: 820, w: 50, h: 8, speed: -0.06},
-            {x: 120, y: 900, w: 50, h: 8, speed: -0.05},
-            {x: 280, y: 970, w: 50, h: 8, speed: 0.05},
-            {x: 120, y: 1050, w: 50, h: 8, speed: 0.06},
-            {x: 280, y: 1120, w: 50, h: 8, speed: -0.06},
-            {x: 120, y: 1200, w: 50, h: 8, speed: -0.05},
+            {x: 120, y: 750, w: 40, h: 6, speed: 0.04},
+            {x: 280, y: 820, w: 40, h: 6, speed: -0.04},
+            {x: 120, y: 900, w: 40, h: 6, speed: -0.035},
+            {x: 280, y: 970, w: 40, h: 6, speed: 0.035},
+            {x: 120, y: 1050, w: 40, h: 6, speed: 0.04},
+            {x: 280, y: 1120, w: 40, h: 6, speed: -0.04},
+            {x: 120, y: 1200, w: 40, h: 6, speed: -0.035},
         ];
 
         middleSpinners.forEach(s => {
             const spinner = Bodies.rectangle(s.x, s.y, s.w, s.h, {
                 isStatic: true,
                 render: { fillStyle: '#ff6b6b' },
-                chamfer: { radius: 3 }
+                chamfer: { radius: 3 },
+                friction: 0,
+                frictionStatic: 0
             });
             spinners.push({ body: spinner, speed: s.speed, type: 'rect' });
             Composite.add(engine.world, spinner);
@@ -170,42 +174,42 @@
         }
         Composite.add(engine.world, pins);
 
-        // 하단 깔때기 및 출구
+        // 하단 깔때기 - 더 넓게
         Composite.add(engine.world, [
             // 깔때기 사선
-            Bodies.rectangle(120, 1380, 250, 10, { ...wallOpt, angle: 0.7 }),
-            Bodies.rectangle(280, 1380, 250, 10, { ...wallOpt, angle: -0.7 }),
-            
-            // 좁은 통로 벽
-            Bodies.rectangle(185, 1470, 8, 100, wallOpt),
-            Bodies.rectangle(215, 1470, 8, 100, wallOpt),
+            Bodies.rectangle(100, 1350, 220, 10, { ...wallOpt, angle: 0.6 }),
+            Bodies.rectangle(300, 1350, 220, 10, { ...wallOpt, angle: -0.6 }),
         ]);
 
-        // 하단 회전판들 (지그재그 출구)
-        const bottomSpinners = [
-            {x: 150, y: 1490, w: 40, h: 6, speed: 0.08},
-            {x: 250, y: 1510, w: 40, h: 6, speed: -0.08},
-            {x: 160, y: 1540, w: 45, h: 6, speed: -0.07},
-            {x: 240, y: 1560, w: 45, h: 6, speed: 0.07},
-        ];
-
-        bottomSpinners.forEach(s => {
-            const spinner = Bodies.rectangle(s.x, s.y, s.w, s.h, {
-                isStatic: true,
-                render: { fillStyle: '#ffd93d' },
-                chamfer: { radius: 2 }
-            });
-            spinners.push({ body: spinner, speed: s.speed, type: 'rect' });
-            Composite.add(engine.world, spinner);
-        });
-
-        // 최종 출구
+        // 하단 최종 구간 - 옆으로 빠지지 않게 긴 벽 추가
         Composite.add(engine.world, [
-            Bodies.rectangle(190, 1590, 5, 30, wallOpt),
-            Bodies.rectangle(210, 1590, 5, 30, wallOpt),
+            // 좁은 통로로 가기 전 가이드 벽
+            Bodies.rectangle(140, 1450, 8, 100, wallOpt),
+            Bodies.rectangle(260, 1450, 8, 100, wallOpt),
+            
+            // 최종 통로 벽 - 더 길게
+            Bodies.rectangle(185, 1520, 8, 160, wallOpt),
+            Bodies.rectangle(215, 1520, 8, 160, wallOpt),
+            
+            // 최종 출구 벽 - 옆으로 빠지지 않게
+            Bodies.rectangle(165, 1590, 30, 8, wallOpt), // 왼쪽 차단
+            Bodies.rectangle(235, 1590, 30, 8, wallOpt), // 오른쪽 차단
         ]);
 
-        // 시작 게이트 - 처음에는 보이게 설정
+        // 하단 회전판들 제거 (X자 벽 제거)
+        // 대신 간단한 경사로만 추가
+        Composite.add(engine.world, [
+            Bodies.rectangle(170, 1500, 50, 8, { ...wallOpt, angle: 0.3 }),
+            Bodies.rectangle(230, 1520, 50, 8, { ...wallOpt, angle: -0.3 }),
+        ]);
+
+        // 최종 출구 깔때기
+        Composite.add(engine.world, [
+            Bodies.rectangle(185, 1585, 25, 8, { ...wallOpt, angle: 0.5 }),
+            Bodies.rectangle(215, 1585, 25, 8, { ...wallOpt, angle: -0.5 }),
+        ]);
+
+        // 시작 게이트
         const gate = Bodies.rectangle(200, 50, 350, 15, { 
             isStatic: true, 
             render: { fillStyle: '#ff0000', opacity: 0.7 },
@@ -216,10 +220,37 @@
         Render.run(render);
         Runner.run(Runner.create(), engine);
 
-        // 회전판 애니메이션
+        // 회전판 애니메이션 + 구슬 갇힘 방지
         Events.on(engine, 'beforeUpdate', () => {
             spinners.forEach(s => {
                 Body.setAngle(s.body, s.body.angle + s.speed);
+            });
+
+            // 구슬이 회전판 근처에 오래 머물면 밀어내기
+            const balls = Composite.allBodies(engine.world).filter(b => !b.isStatic && b.label !== 'gate');
+            balls.forEach(ball => {
+                if (!ball.stuckTimer) ball.stuckTimer = {};
+                
+                spinners.forEach((s, idx) => {
+                    const dx = ball.position.x - s.body.position.x;
+                    const dy = ball.position.y - s.body.position.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    
+                    // 회전판 근처에 있으면
+                    if (dist < 30) {
+                        if (!ball.stuckTimer[idx]) {
+                            ball.stuckTimer[idx] = Date.now();
+                        } else if (Date.now() - ball.stuckTimer[idx] > 2000) { // 2초 이상 머물면
+                            // 아래로 강제로 밀어내기
+                            Body.applyForce(ball, ball.position, { x: 0, y: 0.002 });
+                            // 약간 옆으로도 밀어내기
+                            Body.applyForce(ball, ball.position, { x: (Math.random() - 0.5) * 0.001, y: 0 });
+                            ball.stuckTimer[idx] = Date.now(); // 타이머 리셋
+                        }
+                    } else {
+                        ball.stuckTimer[idx] = null;
+                    }
+                });
             });
         });
 
@@ -251,7 +282,6 @@
                 winCondition = val.winType || 'first';
                 parseNames(val.names);
                 setupMarbles();
-                // shouldSetup 플래그 제거
                 db.ref(`rooms/${roomId}/config/shouldSetup`).set(null);
             }
         });
@@ -281,7 +311,6 @@
         function setupMarbles() {
             if (isRunning) return;
             
-            // 기존 구슬들 제거
             const balls = Composite.allBodies(engine.world).filter(b => !b.isStatic && b.label !== 'gate');
             balls.forEach(b => Composite.remove(engine.world, b));
             
@@ -294,7 +323,6 @@
                 return;
             }
 
-            // 게이트 다시 추가 (제거되었을 경우 대비)
             const existingGate = Composite.allBodies(engine.world).find(b => b.label === 'gate');
             if (!existingGate) {
                 Composite.add(engine.world, gate);
@@ -302,7 +330,11 @@
 
             names.forEach((name, i) => {
                 const ball = Bodies.circle(180 + (Math.random() * 40), 30, 9, {
-                    restitution: 0.6, friction: 0.002, density: 0.001, label: name,
+                    restitution: 0.5, 
+                    friction: 0.001, 
+                    frictionAir: 0.01,
+                    density: 0.001, 
+                    label: name,
                     render: { fillStyle: `hsl(${Math.random() * 360}, 80%, 60%)` }
                 });
                 Composite.add(engine.world, ball);
@@ -339,31 +371,21 @@
         }
 
         function performReset() {
-            // 모든 구슬 제거
             const balls = Composite.allBodies(engine.world).filter(b => !b.isStatic && b.label !== 'gate');
             balls.forEach(b => Composite.remove(engine.world, b));
             
-            // 게이트 다시 추가
             const existingGate = Composite.allBodies(engine.world).find(b => b.label === 'gate');
             if (!existingGate) {
                 Composite.add(engine.world, gate);
             }
             
-            // 결과 숨기기
             document.getElementById('resultDisplay').style.display = 'none';
-            
-            // 상태 초기화
             isRunning = false;
             marblesCreated = false;
             names = [];
-            
-            // 버튼 비활성화
             document.getElementById('dropBtn').disabled = true;
-            
-            // 입력창 초기화
             document.getElementById('nameInput').value = '';
             
-            // Firebase 데이터 초기화
             db.ref(`rooms/${roomId}/config`).set(null);
             db.ref(`rooms/${roomId}/drop`).set(null);
         }
@@ -372,7 +394,6 @@
             if (isRunning || !marblesCreated) return;
             isRunning = true;
             
-            // 게이트 제거
             const gateBody = Composite.allBodies(engine.world).find(b => b.label === 'gate');
             if (gateBody) {
                 Composite.remove(engine.world, gateBody);
@@ -383,7 +404,7 @@
             const check = setInterval(() => {
                 const balls = Composite.allBodies(engine.world).filter(b => !b.isStatic && b.label !== 'gate');
                 balls.forEach(ball => {
-                    if (ball.position.y > 1580 && !ball.isDone) {
+                    if (ball.position.y > 1595 && !ball.isDone) {
                         ball.isDone = true;
                         finished++;
                         if (winCondition === 'first' && finished === 1) showWinner(ball.label);

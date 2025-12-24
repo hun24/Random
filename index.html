@@ -401,6 +401,146 @@
                 }
             }
         }
+        
+        let dragStart = null;
+
+        const gameContainer = document.getElementById('game-container');
+
+        // 마우스 누를 때 (시작점 저장)
+        gameContainer.addEventListener('mousedown', (e) => {
+            if (!editMode || currentTool === 'delete' || currentTool === 'pin') return;
+            const rect = gameContainer.getBoundingClientRect();
+            dragStart = {
+                x: e.clientX - rect.left,
+                y: e.clientY - rect.top
+            };
+        });
+
+        // 마우스 뗄 때 (선 그리기 완료)
+        gameContainer.addEventListener('mouseup', (e) => {
+            if (!editMode) return;
+            
+            const rect = gameContainer.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            if (currentTool === 'delete') {
+                deleteObjectAt(x, y);
+            } else if (currentTool === 'pin') {
+                addObject(x, y); // 핀은 기존처럼 클릭 지점에 생성
+            } else if (dragStart) {
+                // 드래그 거리에 따른 벽/회전판 생성
+                addDraggedObject(dragStart.x, dragStart.y, x, y);
+            }
+            dragStart = null;
+        });
+
+        function addDraggedObject(x1, y1, x2, y2) {
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            // 너무 짧게 드래그하면 생성하지 않음 (실수 방지)
+            if (distance < 5) return;
+
+            const angle = Math.atan2(dy, dx);
+            const midX = (x1 + x2) / 2;
+            const midY = (y1 + y2) / 2;
+            const thickness = (currentTool === 'spinner') ? 8 : 10;
+
+            let body;
+            let options = {
+                isStatic: true,
+                angle: angle,
+                label: 'custom',
+                myInternalData: { w: distance, h: thickness }
+            };
+
+            if (currentTool === 'wall') {
+                body = Bodies.rectangle(midX, midY, distance, thickness, {
+                    ...options,
+                    render: { fillStyle: '#00ff00' },
+                    friction: 0.001
+                });
+            } else if (currentTool === 'spinner') {
+                body = Bodies.rectangle(midX, midY, distance, thickness, {
+                    ...options,
+                    render: { fillStyle: '#ffff00' },
+                    chamfer: { radius: 3 }
+                });
+                spinners.push({ body: body, speed: currentSpeed, type: 'rect' });
+            }
+
+            if (body) {
+                Composite.add(engine.world, body);
+                pushToUndoStack('add', { body: body });
+            }
+        }
+
+        // 1. 마우스 위치 추적 변수 추가
+        let mousePos = { x: 0, y: 0 };
+
+        // 마우스 이동 감지 이벤트
+        gameContainer.addEventListener('mousemove', (e) => {
+            if (!editMode) return;
+            const rect = gameContainer.getBoundingClientRect();
+            mousePos.x = e.clientX - rect.left;
+            mousePos.y = e.clientY - rect.top;
+        });
+
+        // 2. 실시간 미리보기 가이드 렌더링 (Events.on(render, 'afterRender', ...) 내부에 추가)
+        Events.on(render, 'afterRender', () => {
+            const ctx = render.context;
+
+            // 편집 모드일 때만 가이드 표시
+            if (editMode) {
+                ctx.save();
+                ctx.globalAlpha = 0.4; // 흐리게 표시 (40% 투명도)
+
+                if (currentTool === 'pin') {
+                    // 핀 미리보기 (원형)
+                    ctx.beginPath();
+                    ctx.arc(mousePos.x, mousePos.y, currentSize / 5, 0, Math.PI * 2);
+                    ctx.fillStyle = '#ff00ff';
+                    ctx.fill();
+                    ctx.closePath();
+                } 
+                else if (currentTool === 'spinner' && !dragStart) {
+                    // 회전판 미리보기 (회전하지 않는 기본 사각형 상태 표시)
+                    // 드래그 중이 아닐 때만 마우스 커서를 따라다님
+                    ctx.translate(mousePos.x, mousePos.y);
+                    ctx.rotate(currentAngle);
+                    ctx.fillStyle = '#ffff00';
+                    ctx.fillRect(-currentSize / 2, -4, currentSize, 8);
+                }
+                else if (currentTool === 'wall' && !dragStart) {
+                    // 벽 미리보기
+                    ctx.translate(mousePos.x, mousePos.y);
+                    ctx.rotate(currentAngle);
+                    ctx.fillStyle = '#00ff00';
+                    ctx.fillRect(-currentSize / 2, -5, currentSize, 10);
+                }
+                // 드래그 중일 때 선 미리보기
+                if (dragStart && (currentTool === 'wall' || currentTool === 'spinner')) {
+                    ctx.beginPath();
+                    ctx.setLineDash([5, 5]); // 점선 표시
+                    ctx.moveTo(dragStart.x, dragStart.y);
+                    ctx.lineTo(mousePos.x, mousePos.y);
+                    ctx.strokeStyle = currentTool === 'wall' ? '#00ff00' : '#ffff00';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    ctx.setLineDash([]); // 점선 초기화
+                    ctx.closePath();
+                }
+
+                ctx.restore();
+            }
+
+            // 기존 이름표 렌더링 로직 (유지)
+            ctx.font = "bold 11px sans-serif";
+            ctx.textAlign = "center";
+            // ... (기존 이름표 코드 생략)
+        });
 
         function undo() {
             if (undoStack.length === 0) return;

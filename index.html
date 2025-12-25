@@ -109,821 +109,238 @@
 };
         // ============================
 
-        firebase.initializeApp(firebaseConfig);
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
         const db = firebase.database();
-        let roomId = new URLSearchParams(window.location.search).get('room') || Math.random().toString(36).substring(2, 7);
-        if (!window.location.search.includes('room')) window.history.pushState({}, '', `?room=${roomId}`);
-
-        const { Engine, Render, Runner, Bodies, Composite, Events, Body } = Matter;
-        const engine = Engine.create();
-        engine.gravity.y = 1.0;
         
-        const render = Render.create({
-            element: document.getElementById('game-container'),
-            engine: engine,
-            options: { width: 400, height: 1600, wireframes: false, background: '#2a2a2a' }
-        });
-
-        const wallOpt = { isStatic: true, render: { fillStyle: '#555' }, friction: 0.001 };
-        const pinOpt = { isStatic: true, render: { fillStyle: '#888' }, restitution: 0.5 };
-
-        // 외곽 벽
-        Composite.add(engine.world, [
-            Bodies.rectangle(200, 1610, 400, 20, { ...wallOpt, label: 'boundary' }), // 바닥
-            Bodies.rectangle(-5, 800, 10, 1600, { ...wallOpt, label: 'boundary' }), // 왼벽
-            Bodies.rectangle(405, 800, 10, 1600, { ...wallOpt, label: 'boundary' }), // 오른벽
-        ]);
-
-        // 상단 입구 - 깔때기 형태
-        Composite.add(engine.world, [
-            Bodies.rectangle(80, 100, 140, 10, { ...wallOpt, angle: 0.4, label: 'default' }),
-            Bodies.rectangle(320, 100, 140, 10, { ...wallOpt, angle: -0.4, label: 'default' }),
-            Bodies.rectangle(60, 180, 100, 10, { ...wallOpt, angle: -0.3, label: 'default' }),
-            Bodies.rectangle(340, 180, 100, 10, { ...wallOpt, angle: 0.3, label: 'default' }),
-        ]);
-
-        // 회전판과 벽 정의
-        const spinners = [];
+        // 2. Matter.js 엔진 설정
+        const { Engine, Render, Runner, Bodies, Composite, Events } = Matter;
         
-        // 중앙 섹션 - 스피커 형태 (회전판과 긴 벽)
-        Composite.add(engine.world, [
-            Bodies.rectangle(130, 380, 8, 180, { ...wallOpt, label: 'default' }),
-            Bodies.rectangle(130, 590, 8, 200, { ...wallOpt, label: 'default' }),
-            Bodies.rectangle(270, 380, 8, 180, { ...wallOpt, label: 'default' }),
-            Bodies.rectangle(270, 590, 8, 200, { ...wallOpt, label: 'default' }),
-        ]);
-
-        // 중앙 스피커 부분의 회전판들
-        const speakerSpinners = [
-            {x: 160, y: 460, w: 28, h: 5, speed: 0.03},
-            {x: 190, y: 460, w: 28, h: 5, speed: -0.03},
-            {x: 160, y: 500, w: 28, h: 5, speed: -0.03},
-            {x: 190, y: 500, w: 28, h: 5, speed: 0.03},
-            {x: 160, y: 540, w: 28, h: 5, speed: 0.03},
-            {x: 190, y: 540, w: 28, h: 5, speed: -0.03},
-            {x: 210, y: 460, w: 28, h: 5, speed: 0.03},
-            {x: 240, y: 460, w: 28, h: 5, speed: -0.03},
-            {x: 210, y: 500, w: 28, h: 5, speed: -0.03},
-            {x: 240, y: 500, w: 28, h: 5, speed: 0.03},
-            {x: 210, y: 540, w: 28, h: 5, speed: 0.03},
-            {x: 240, y: 540, w: 28, h: 5, speed: -0.03},
-        ];
-
-        speakerSpinners.forEach(s => {
-            const spinner = Bodies.rectangle(s.x, s.y, s.w, s.h, {
-                isStatic: true,
-                render: { fillStyle: '#4a9eff' },
-                chamfer: { radius: 2 },
-                friction: 0,
-                frictionStatic: 0,
-                label: 'default'
-            });
-            spinners.push({ body: spinner, speed: s.speed, type: 'rect' });
-            Composite.add(engine.world, spinner);
-        });
-
-        // 중단 섹션
-        Composite.add(engine.world, [
-            Bodies.rectangle(80, 800, 8, 250, { ...wallOpt, label: 'default' }),
-            Bodies.rectangle(320, 800, 8, 250, { ...wallOpt, label: 'default' }),
-            Bodies.rectangle(80, 1100, 8, 200, { ...wallOpt, label: 'default' }),
-            Bodies.rectangle(320, 1100, 8, 200, { ...wallOpt, label: 'default' }),
-        ]);
-
-        // 중단 회전판들
-        const middleSpinners = [
-            {x: 120, y: 750, w: 40, h: 6, speed: 0.04},
-            {x: 280, y: 820, w: 40, h: 6, speed: -0.04},
-            {x: 120, y: 900, w: 40, h: 6, speed: -0.035},
-            {x: 280, y: 970, w: 40, h: 6, speed: 0.035},
-            {x: 120, y: 1050, w: 40, h: 6, speed: 0.04},
-            {x: 280, y: 1120, w: 40, h: 6, speed: -0.04},
-            {x: 120, y: 1200, w: 40, h: 6, speed: -0.035},
-        ];
-
-        middleSpinners.forEach(s => {
-            const spinner = Bodies.rectangle(s.x, s.y, s.w, s.h, {
-                isStatic: true,
-                render: { fillStyle: '#ff6b6b' },
-                chamfer: { radius: 3 },
-                friction: 0,
-                frictionStatic: 0,
-                label: 'default'
-            });
-            spinners.push({ body: spinner, speed: s.speed, type: 'rect' });
-            Composite.add(engine.world, spinner);
-        });
-
-        // 핀볼 핀들
-        const pins = [];
-        for (let row = 0; row < 12; row++) {
-            const y = 750 + row * 55;
-            const offset = row % 2 === 0 ? 0 : 25;
-            for (let col = 0; col < 6; col++) {
-                const x = 120 + col * 40 + offset;
-                if (x > 100 && x < 300) {
-                    pins.push(Bodies.circle(x, y, 5, { ...pinOpt, label: 'default' }));
-                }
-            }
-        }
-        Composite.add(engine.world, pins);
-
-        // 하단 깔때기
-        Composite.add(engine.world, [
-            Bodies.rectangle(90, 1340, 200, 10, { ...wallOpt, angle: 0.55, label: 'default' }),
-            Bodies.rectangle(310, 1340, 200, 10, { ...wallOpt, angle: -0.55, label: 'default' }),
-            Bodies.rectangle(130, 1440, 10, 150, { ...wallOpt, label: 'default' }),
-            Bodies.rectangle(270, 1440, 10, 150, { ...wallOpt, label: 'default' }),
-            Bodies.rectangle(180, 1530, 10, 180, { ...wallOpt, label: 'default' }),
-            Bodies.rectangle(220, 1530, 10, 180, { ...wallOpt, label: 'default' }),
-            Bodies.rectangle(165, 1540, 10, 100, { ...wallOpt, label: 'default' }),
-            Bodies.rectangle(235, 1540, 10, 100, { ...wallOpt, label: 'default' }),
-        ]);
-
-        // 하단 경사로
-        Composite.add(engine.world, [
-            Bodies.rectangle(165, 1490, 45, 8, { ...wallOpt, angle: 0.25, label: 'default' }),
-            Bodies.rectangle(235, 1510, 45, 8, { ...wallOpt, angle: -0.25, label: 'default' }),
-        ]);
-
-        // 시작 게이트
-        const gate = Bodies.rectangle(200, 50, 350, 15, { 
-            isStatic: true, 
-            render: { fillStyle: '#ff0000', opacity: 0.7 },
-            label: 'gate'
-        });
-        Composite.add(engine.world, gate);
-
-        Render.run(render);
-        Runner.run(Runner.create(), engine);
-
-        // 편집 모드 변수
+        let engine, render, runner;
+        let names = [];
+        let winCondition = 'first';
+        let isRunning = false;
+        let marblesCreated = false;
+        let spinners = [];
+        let isHost = false; // 내가 방장인지 여부
+        
+        // 편집 관련 변수
         let editMode = false;
-        let currentTool = 'wall';
-        let currentSize = 50;
-        let currentAngle = 0;
-        let currentSpeed = 0.05;
-
-        // 맵 클릭 이벤트
-        document.getElementById('game-container').addEventListener('click', (e) => {
-            if (!editMode) return;
-            
-            const rect = e.target.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            
-            if (currentTool === 'delete') {
-                deleteObjectAt(x, y);
-            } else {
-                addObject(x, y);
-            }
-        });
-
-        function toggleEditMode() {
-            editMode = !editMode;
-            const btn = document.getElementById('editModeBtn');
-            const controls = document.getElementById('editControls');
-            
-            if (editMode) {
-                btn.style.background = '#e67e22';
-                btn.textContent = '✅ 편집 완료';
-                controls.classList.add('active');
-            } else {
-                btn.style.background = '#faa61a';
-                btn.textContent = '🛠️ 맵 편집 모드';
-                controls.classList.remove('active');
-            }
-        }
-
-        function selectTool(tool) {
-            currentTool = tool;
-            document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('active'));
-            event.target.classList.add('active');
-            
-            const speedControl = document.getElementById('speedControl');
-            speedControl.style.display = tool === 'spinner' ? 'block' : 'none';
-            
-            const status = document.getElementById('editStatus');
-            const toolNames = {
-                'wall': '벽',
-                'spinner': '회전판',
-                'pin': '핀',
-                'delete': '삭제 모드'
-            };
-            status.textContent = `편집 모드: ${toolNames[tool]} - 클릭하여 ${tool === 'delete' ? '삭제' : '추가'}`;
-        }
-
-        function updateSize(value) {
-            currentSize = parseInt(value);
-            document.getElementById('sizeValue').textContent = value;
-        }
-
-        function updateAngle(value) {
-            currentAngle = parseFloat(value) * Math.PI / 180;
-            document.getElementById('angleValue').textContent = value;
-        }
-
-        function updateSpeed(value) {
-            currentSpeed = parseFloat(value);
-            document.getElementById('speedValue').textContent = value;
-        }
-
-        // === 되돌리기(Undo) 관련 변수 ===
-        let undoStack = [];
-
-        // 이벤트를 스택에 저장하는 함수
-        function pushToUndoStack(type, data) {
-            undoStack.push({ type, data });
-            if (undoStack.length > 50) undoStack.shift(); // 최대 50개까지 기억
-        }
-
-        function addObject(x, y) {
-            let body;
-            let commonOptions = {
-                isStatic: true,
-                angle: currentAngle,
-                label: 'custom',
-                myInternalData: {
-                    w: currentTool === 'pin' ? currentSize / 5 : currentSize,
-                    h: currentTool === 'pin' ? currentSize / 5 : (currentTool === 'spinner' ? 8 : 10),
-                    origSize: currentSize
+        let currentTool = 'wall', currentSize = 100, currentAngle = 0, currentSpeed = 0.05;
+        let undoStack = [], mousePos = { x: 0, y: 0 }, dragStart = null;
+        
+        const roomId = new URLSearchParams(window.location.search).get('room') || 'default';
+        document.getElementById('currentRoomDisplay').textContent = roomId;
+        
+        // --- 게임 초기화 ---
+        function initGame() {
+            engine = Engine.create();
+            render = Render.create({
+                element: document.getElementById('game-container'),
+                engine: engine,
+                options: { width: 400, height: 1600, wireframes: false, background: '#1a1a1a' }
+            });
+        
+            const wallOpt = { isStatic: true, render: { fillStyle: '#333' } };
+            const ground = Bodies.rectangle(200, 1610, 400, 20, { ...wallOpt, label: 'boundary' });
+            const gate = Bodies.rectangle(200, 50, 400, 10, { isStatic: true, render: { fillStyle: '#ff4444' }, label: 'gate' });
+            Composite.add(engine.world, [
+                Bodies.rectangle(0, 800, 20, 1600, wallOpt),
+                Bodies.rectangle(400, 800, 20, 1600, wallOpt),
+                ground, gate
+            ]);
+        
+            runner = Runner.create();
+            Runner.run(runner, engine);
+            Render.run(render);
+        
+            // 렌더링 루프 (이름표 및 미리보기)
+            Events.on(render, 'afterRender', () => {
+                const ctx = render.context;
+                if (editMode) {
+                    ctx.save(); ctx.globalAlpha = 0.4;
+                    if (currentTool === 'pin') {
+                        ctx.beginPath(); ctx.arc(mousePos.x, mousePos.y, currentSize/5, 0, Math.PI*2);
+                        ctx.fillStyle = '#ff00ff'; ctx.fill();
+                    } else if (!dragStart) {
+                        ctx.translate(mousePos.x, mousePos.y); ctx.rotate(currentAngle);
+                        ctx.fillStyle = (currentTool === 'spinner') ? '#ffff00' : '#00ff00';
+                        ctx.fillRect(-currentSize/2, (currentTool==='spinner'?-4:-5), currentSize, (currentTool==='spinner'?8:10));
+                    }
+                    ctx.restore();
+                    if (dragStart && (currentTool === 'wall' || currentTool === 'spinner')) {
+                        ctx.beginPath(); ctx.setLineDash([5, 5]); ctx.moveTo(dragStart.x, dragStart.y);
+                        ctx.lineTo(mousePos.x, mousePos.y); ctx.strokeStyle = (currentTool==='wall'?'#00ff00':'#ffff00'); ctx.stroke();
+                    }
                 }
+                Composite.allBodies(engine.world).forEach(body => {
+                    if (body.label && !['gate','boundary','custom','default'].includes(body.label)) {
+                        ctx.fillStyle = "white"; ctx.font = "bold 11px sans-serif"; ctx.textAlign = "center";
+                        ctx.fillText(body.label, body.position.x, body.position.y - 12);
+                    }
+                });
+            });
+        
+            Events.on(engine, 'beforeUpdate', () => {
+                spinners.forEach(s => Matter.Body.setAngle(s.body, s.body.angle + s.speed));
+            });
+        
+            // [동기화] 타인이 시작하거나 결과가 나왔을 때 감지
+            db.ref(`rooms/${roomId}/raceState`).on('value', snap => {
+                const state = snap.val();
+                if (state === 'start' && !isRunning) startRace(false); // 타인이 시작 누름
+                if (state === 'ready') resetGameUI();
+            });
+        
+            db.ref(`rooms/${roomId}/winner`).on('value', snap => {
+                const winner = snap.val();
+                if (winner) showWinner(winner); // 모두에게 동일한 우승자 표시
+            });
+        }
+        
+        // --- 레이스 제어 ---
+        function startRace(isInitiator = true) {
+            if (isRunning) return;
+            isRunning = true;
+            isHost = isInitiator; // 시작 버튼 누른 사람이 방장
+        
+            if (isHost) {
+                db.ref(`rooms/${roomId}/winner`).set(null); // 결과 초기화
+                db.ref(`rooms/${roomId}/raceState`).set('start'); // 모두 시작
+            }
+        
+            const gate = Composite.allBodies(engine.world).find(b => b.label === 'gate');
+            if (gate) Composite.remove(engine.world, gate);
+            
+            let finished = 0;
+            const total = names.length;
+        
+            const collisionHandler = (event) => {
+                event.pairs.forEach(pair => {
+                    const { bodyA, bodyB } = pair;
+                    const ball = [bodyA, bodyB].find(b => !b.isStatic && b.label !== 'boundary' && !b.isDone);
+                    const isFloor = [bodyA, bodyB].some(b => b.label === 'boundary');
+        
+                    if (ball && isFloor) {
+                        ball.isDone = true;
+                        finished++;
+                        
+                        // [핵심] 방장만 Firebase에 결과를 기록함
+                        if (isHost) {
+                            if ((winCondition === 'first' && finished === 1) || (winCondition === 'last' && finished === total)) {
+                                db.ref(`rooms/${roomId}/winner`).set(ball.label);
+                            }
+                        }
+                        
+                        Composite.remove(engine.world, ball);
+                        if (finished === total) {
+                            Events.off(engine, 'collisionStart', collisionHandler);
+                            isRunning = false;
+                            if (isHost) db.ref(`rooms/${roomId}/raceState`).set('ready');
+                        }
+                    }
+                });
             };
-
-            if (currentTool === 'wall') {
-                body = Bodies.rectangle(x, y, currentSize, 10, { ...commonOptions, render: { fillStyle: '#00ff00' } });
-            } else if (currentTool === 'spinner') {
-                body = Bodies.rectangle(x, y, currentSize, 8, { ...commonOptions, render: { fillStyle: '#ffff00' }, chamfer: { radius: 3 } });
-                spinners.push({ body: body, speed: currentSpeed, type: 'rect' });
-            } else if (currentTool === 'pin') {
-                body = Bodies.circle(x, y, currentSize / 5, { ...commonOptions, render: { fillStyle: '#ff00ff' }, restitution: 0.5 });
-            }
-
-            if (body) {
-                Composite.add(engine.world, body);
-                // 생성 기록 저장
-                pushToUndoStack('add', { body: body });
-            }
+            Events.on(engine, 'collisionStart', collisionHandler);
+        }
+        
+        // --- 편집 및 객체 생성 함수들 ---
+        const gameContainer = document.getElementById('game-container');
+        gameContainer.addEventListener('mousedown', (e) => {
+            if (!editMode || ['delete','pin'].includes(currentTool)) return;
+            const rect = gameContainer.getBoundingClientRect();
+            dragStart = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        });
+        
+        gameContainer.addEventListener('mousemove', (e) => {
+            const rect = gameContainer.getBoundingClientRect();
+            mousePos.x = e.clientX - rect.left; mousePos.y = e.clientY - rect.top;
+        });
+        
+        gameContainer.addEventListener('mouseup', (e) => {
+            if (!editMode) return;
+            const rect = gameContainer.getBoundingClientRect();
+            const x = e.clientX - rect.left, y = e.clientY - rect.top;
+            if (currentTool === 'delete') deleteObjectAt(x, y);
+            else if (currentTool === 'pin') addPin(x, y);
+            else if (dragStart) addDraggedObject(dragStart.x, dragStart.y, x, y);
+            dragStart = null;
+        });
+        
+        function addPin(x, y) {
+            const r = currentSize/5;
+            const body = Bodies.circle(x, y, r, { isStatic: true, label: 'custom', render: { fillStyle: '#ff00ff' }, restitution: 0.5, myInternalData: { w: r, h: r } });
+            Composite.add(engine.world, body); pushToUndoStack('add', { body });
+        }
+        
+        function addDraggedObject(x1, y1, x2, y2) {
+            const dx = x2-x1, dy = y2-y1, dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist < 5) return;
+            const angle = Math.atan2(dy, dx), thickness = (currentTool==='spinner'?8:10);
+            const body = Bodies.rectangle((x1+x2)/2, (y1+y2)/2, dist, thickness, { isStatic: true, angle, label: 'custom', render: { fillStyle: (currentTool==='spinner'?'#ffff00':'#00ff00') }, myInternalData: { w: dist, h: thickness } });
+            if (currentTool==='spinner') spinners.push({ body, speed: currentSpeed });
+            Composite.add(engine.world, body); pushToUndoStack('add', { body });
         }
         
         function deleteObjectAt(x, y) {
             const bodies = Composite.allBodies(engine.world);
             for (let body of bodies) {
                 if (body.label !== 'custom' && body.label !== 'default') continue;
-
-                const bounds = body.bounds;
-                if (x >= bounds.min.x && x <= bounds.max.x && y >= bounds.min.y && y <= bounds.max.y) {
-                    
-                    // 삭제 전 정보 백업
-                    const spinner = spinners.find(s => s.body === body);
-                    const backup = {
-                        label: body.label,
-                        type: body.circleRadius ? 'pin' : (spinner ? 'spinner' : 'wall'),
-                        x: body.position.x,
-                        y: body.position.y,
-                        width: body.myInternalData ? body.myInternalData.w : (body.parts[0].vertices[1].x - body.parts[0].vertices[0].x),
-                        height: body.myInternalData ? body.myInternalData.h : (body.parts[0].vertices[2].y - body.parts[0].vertices[1].y),
-                        angle: body.angle,
-                        speed: spinner ? spinner.speed : 0,
-                        radius: body.circleRadius || 0,
-                        color: body.render.fillStyle
-                    };
-
-                    pushToUndoStack('delete', backup);
-
-                    // 실제 삭제
+                if (Matter.Bounds.contains(body.bounds, { x, y })) {
+                    const s = spinners.find(sp => sp.body === body);
+                    pushToUndoStack('delete', { label: body.label, x: body.position.x, y: body.position.y, width: body.myInternalData?.w || 50, height: body.myInternalData?.h || 10, angle: body.angle, speed: s?.speed || 0, type: body.circleRadius?'pin':(s?'spinner':'wall'), color: body.render.fillStyle, radius: body.circleRadius || 0 });
                     Composite.remove(engine.world, body);
-                    if (spinner) {
-                        const idx = spinners.indexOf(spinner);
-                        spinners.splice(idx, 1);
-                    }
+                    if (s) spinners.splice(spinners.indexOf(s), 1);
                     break;
                 }
             }
         }
         
-        let dragStart = null;
-
-        const gameContainer = document.getElementById('game-container');
-
-        // 마우스 누를 때 (시작점 저장)
-        gameContainer.addEventListener('mousedown', (e) => {
-            if (!editMode || currentTool === 'delete' || currentTool === 'pin') return;
-            const rect = gameContainer.getBoundingClientRect();
-            dragStart = {
-                x: e.clientX - rect.left,
-                y: e.clientY - rect.top
-            };
-        });
-
-        // 마우스 뗄 때 (선 그리기 완료)
-        gameContainer.addEventListener('mouseup', (e) => {
-            if (!editMode) return;
-            
-            const rect = gameContainer.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-
-            if (currentTool === 'delete') {
-                deleteObjectAt(x, y);
-            } else if (currentTool === 'pin') {
-                addObject(x, y); // 핀은 기존처럼 클릭 지점에 생성
-            } else if (dragStart) {
-                // 드래그 거리에 따른 벽/회전판 생성
-                addDraggedObject(dragStart.x, dragStart.y, x, y);
-            }
-            dragStart = null;
-        });
-
-        function addDraggedObject(x1, y1, x2, y2) {
-            const dx = x2 - x1;
-            const dy = y2 - y1;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            
-            // 너무 짧게 드래그하면 생성하지 않음 (실수 방지)
-            if (distance < 5) return;
-
-            const angle = Math.atan2(dy, dx);
-            const midX = (x1 + x2) / 2;
-            const midY = (y1 + y2) / 2;
-            const thickness = (currentTool === 'spinner') ? 8 : 10;
-
-            let body;
-            let options = {
-                isStatic: true,
-                angle: angle,
-                label: 'custom',
-                myInternalData: { w: distance, h: thickness }
-            };
-
-            if (currentTool === 'wall') {
-                body = Bodies.rectangle(midX, midY, distance, thickness, {
-                    ...options,
-                    render: { fillStyle: '#00ff00' },
-                    friction: 0.001
-                });
-            } else if (currentTool === 'spinner') {
-                body = Bodies.rectangle(midX, midY, distance, thickness, {
-                    ...options,
-                    render: { fillStyle: '#ffff00' },
-                    chamfer: { radius: 3 }
-                });
-                spinners.push({ body: body, speed: currentSpeed, type: 'rect' });
-            }
-
-            if (body) {
-                Composite.add(engine.world, body);
-                pushToUndoStack('add', { body: body });
-            }
-        }
-
-        // 1. 마우스 위치 추적 변수 추가
-        let mousePos = { x: 0, y: 0 };
-
-        // 마우스 이동 감지 이벤트
-        gameContainer.addEventListener('mousemove', (e) => {
-            if (!editMode) return;
-            const rect = gameContainer.getBoundingClientRect();
-            mousePos.x = e.clientX - rect.left;
-            mousePos.y = e.clientY - rect.top;
-        });
-
-        // 2. 실시간 미리보기 가이드 렌더링 (Events.on(render, 'afterRender', ...) 내부에 추가)
-        Events.on(render, 'afterRender', () => {
-            const ctx = render.context;
-
-            // 편집 모드일 때만 가이드 표시
-            if (editMode) {
-                ctx.save();
-                ctx.globalAlpha = 0.4; // 흐리게 표시 (40% 투명도)
-
-                if (currentTool === 'pin') {
-                    // 핀 미리보기 (원형)
-                    ctx.beginPath();
-                    ctx.arc(mousePos.x, mousePos.y, currentSize / 5, 0, Math.PI * 2);
-                    ctx.fillStyle = '#ff00ff';
-                    ctx.fill();
-                    ctx.closePath();
-                } 
-                else if (currentTool === 'spinner' && !dragStart) {
-                    // 회전판 미리보기 (회전하지 않는 기본 사각형 상태 표시)
-                    // 드래그 중이 아닐 때만 마우스 커서를 따라다님
-                    ctx.translate(mousePos.x, mousePos.y);
-                    ctx.rotate(currentAngle);
-                    ctx.fillStyle = '#ffff00';
-                    ctx.fillRect(-currentSize / 2, -4, currentSize, 8);
-                }
-                else if (currentTool === 'wall' && !dragStart) {
-                    // 벽 미리보기
-                    ctx.translate(mousePos.x, mousePos.y);
-                    ctx.rotate(currentAngle);
-                    ctx.fillStyle = '#00ff00';
-                    ctx.fillRect(-currentSize / 2, -5, currentSize, 10);
-                }
-                // 드래그 중일 때 선 미리보기
-                if (dragStart && (currentTool === 'wall' || currentTool === 'spinner')) {
-                    ctx.beginPath();
-                    ctx.setLineDash([5, 5]); // 점선 표시
-                    ctx.moveTo(dragStart.x, dragStart.y);
-                    ctx.lineTo(mousePos.x, mousePos.y);
-                    ctx.strokeStyle = currentTool === 'wall' ? '#00ff00' : '#ffff00';
-                    ctx.lineWidth = 2;
-                    ctx.stroke();
-                    ctx.setLineDash([]); // 점선 초기화
-                    ctx.closePath();
-                }
-
-                ctx.restore();
-            }
-
-            // 기존 이름표 렌더링 로직 (유지)
-            ctx.font = "bold 11px sans-serif";
-            ctx.textAlign = "center";
-            // ... (기존 이름표 코드 생략)
-        });
-
+        // --- 기타 유틸리티 (Undo, Save, Load, UI) ---
+        function pushToUndoStack(type, data) { undoStack.push({ type, data }); if (undoStack.length > 50) undoStack.shift(); }
         function undo() {
             if (undoStack.length === 0) return;
-            const action = undoStack.pop();
-
-            if (action.type === 'add') {
-                // 추가했던 것을 삭제
-                Composite.remove(engine.world, action.data.body);
-                const sIdx = spinners.findIndex(s => s.body === action.data.body);
-                if (sIdx !== -1) spinners.splice(sIdx, 1);
-            } 
-            else if (action.type === 'delete') {
-                // 삭제했던 것을 다시 생성
-                const obj = action.data;
-                let body;
-                let options = {
-                    isStatic: true,
-                    angle: obj.angle,
-                    label: obj.label,
-                    render: { fillStyle: obj.color },
-                    myInternalData: { w: obj.width, h: obj.height }
-                };
-
-                if (obj.type === 'pin') {
-                    body = Bodies.circle(obj.x, obj.y, obj.radius, { ...options, restitution: 0.5 });
-                } else {
-                    body = Bodies.rectangle(obj.x, obj.y, obj.width, obj.height, options);
-                    if (obj.type === 'spinner') {
-                        spinners.push({ body: body, speed: obj.speed, type: 'rect' });
-                    }
-                }
+            const a = undoStack.pop();
+            if (a.type === 'add') {
+                Composite.remove(engine.world, a.data.body);
+                const idx = spinners.findIndex(s => s.body === a.data.body); if (idx!==-1) spinners.splice(idx, 1);
+            } else {
+                const o = a.data; let opt = { isStatic: true, angle: o.angle, label: o.label, render: { fillStyle: o.color }, myInternalData: { w: o.width, h: o.height } };
+                let body = o.type==='pin' ? Bodies.circle(o.x, o.y, o.radius, opt) : Bodies.rectangle(o.x, o.y, o.width, o.height, opt);
+                if (o.type==='spinner') spinners.push({ body, speed: o.speed });
                 Composite.add(engine.world, body);
             }
         }
-
-        // Ctrl + Z 단축키 이벤트
-        window.addEventListener('keydown', (e) => {
-            if (e.ctrlKey && e.key === 'z') {
-                undo();
-            }
-        });
-
+        
         function saveMap() {
-            const allMapObjects = [];
-            const bodies = Composite.allBodies(engine.world);
-            
-            bodies.forEach(body => {
-                // 커스텀과 기본 요소를 모두 저장 (외곽벽과 게이트 제외)
-                if (body.label === 'custom' || body.label === 'default') {
-                    const spinner = spinners.find(s => s.body === body);
-                    
-                    // 기본 요소(default)는 myInternalData가 없으므로 수동 계산
-                    let w, h;
-                    if (body.myInternalData) {
-                        w = body.myInternalData.w;
-                        h = body.myInternalData.h;
-                    } else {
-                        // 기본 사각형들 크기 역산 (회전 안 된 상태 기준)
-                        w = body.parts[0].vertices[1].x - body.parts[0].vertices[0].x;
-                        h = body.parts[0].vertices[2].y - body.parts[0].vertices[1].y;
-                    }
-
-                    allMapObjects.push({
-                        label: body.label, // custom 또는 default 구분
-                        type: body.circleRadius ? 'pin' : (spinner ? 'spinner' : 'wall'),
-                        x: body.position.x,
-                        y: body.position.y,
-                        width: w,
-                        height: h,
-                        angle: body.angle,
-                        speed: spinner ? spinner.speed : 0,
-                        radius: body.circleRadius || 0,
-                        renderColor: body.render.fillStyle
-                    });
-                }
+            const data = Composite.allBodies(engine.world).filter(b => b.label === 'custom' || b.label === 'default').map(b => {
+                const s = spinners.find(sp => sp.body === b);
+                return { label: b.label, x: b.position.x, y: b.position.y, angle: b.angle, width: b.myInternalData?.w || 50, height: b.myInternalData?.h || 10, type: b.circleRadius?'pin':(s?'spinner':'wall'), speed: s?.speed || 0, radius: b.circleRadius || 0, color: b.render.fillStyle };
             });
-            
-            db.ref(`rooms/${roomId}/customMap`).set(allMapObjects);
-            alert('기존 요소를 포함한 모든 맵이 저장되었습니다!');
-        }
-
-        function loadMap() {
-            db.ref(`rooms/${roomId}/customMap`).once('value', snap => {
-                const mapData = snap.val();
-                if (!mapData) {
-                    alert('저장된 맵이 없습니다.');
-                    return;
-                }
-                
-                // 기존의 모든 맵 오브젝트 삭제
-                clearCustomMap();
-                
-                mapData.forEach(obj => {
-                    let body;
-                    let options = {
-                        isStatic: true,
-                        angle: obj.angle,
-                        label: obj.label, // 저장된 라벨 복원
-                        render: { fillStyle: obj.renderColor },
-                        myInternalData: { w: obj.width, h: obj.height }
-                    };
-
-                    if (obj.type === 'pin') {
-                        body = Bodies.circle(obj.x, obj.y, obj.radius, {
-                            ...options,
-                            restitution: 0.5
-                        });
-                    } else {
-                        body = Bodies.rectangle(obj.x, obj.y, obj.width, obj.height, options);
-                        if (obj.type === 'spinner') {
-                            spinners.push({ body: body, speed: obj.speed, type: 'rect' });
-                        }
-                    }
-                    if (body) Composite.add(engine.world, body);
-                });
-                alert('모든 요소를 불러왔습니다!');
-            });
-        }
-
-        function clearCustomMap() {
-            const bodies = Composite.allBodies(engine.world);
-    // 'custom'과 'default' 모두 삭제
-            const deletableBodies = bodies.filter(b => b.label === 'custom' || b.label === 'default');
-            deletableBodies.forEach(body => {
-                Composite.remove(engine.world, body);
-                const spinnerIndex = spinners.findIndex(s => s.body === body);
-                if (spinnerIndex !== -1) {
-                    spinners.splice(spinnerIndex, 1);
-                }
-            });
-        }
-        // 회전판 애니메이션 + 구슬 갇힘 방지
-        Events.on(engine, 'beforeUpdate', () => {
-            spinners.forEach(s => {
-                Body.setAngle(s.body, s.body.angle + s.speed);
-            });
-
-            const balls = Composite.allBodies(engine.world).filter(b => !b.isStatic && b.label !== 'gate');
-            balls.forEach(ball => {
-                if (!ball.stuckTimer) ball.stuckTimer = {};
-                
-                spinners.forEach((s, idx) => {
-                    const dx = ball.position.x - s.body.position.x;
-                    const dy = ball.position.y - s.body.position.y;
-                    const dist = Math.sqrt(dx * dx + dy * dy);
-                    
-                    if (dist < 30) {
-                        if (!ball.stuckTimer[idx]) {
-                            ball.stuckTimer[idx] = Date.now();
-                        } else if (Date.now() - ball.stuckTimer[idx] > 2000) {
-                            Body.applyForce(ball, ball.position, { x: 0, y: 0.002 });
-                            Body.applyForce(ball, ball.position, { x: (Math.random() - 0.5) * 0.001, y: 0 });
-                            ball.stuckTimer[idx] = Date.now();
-                        }
-                    } else {
-                        ball.stuckTimer[idx] = null;
-                    }
-                });
-                
-                if (ball.position.y > 1400) {
-                    if (ball.position.x < 170) {
-                        Body.applyForce(ball, ball.position, { x: 0.0005, y: 0 });
-                    } else if (ball.position.x > 230) {
-                        Body.applyForce(ball, ball.position, { x: -0.0005, y: 0 });
-                    }
-                }
-            });
-        });
-
-        // 이름표 렌더링
-        Events.on(render, 'afterRender', () => {
-            const ctx = render.context;
-            ctx.font = "bold 11px sans-serif";
-            ctx.textAlign = "center";
-            Composite.allBodies(engine.world).forEach(body => {
-                if (body.label && body.label !== 'Body' && body.label !== 'gate' && !body.isStatic) {
-                    ctx.fillStyle = "rgba(0,0,0,0.7)";
-                    const tw = ctx.measureText(body.label).width;
-                    ctx.fillRect(body.position.x - tw/2 - 3, body.position.y - 28, tw + 6, 16);
-                    ctx.fillStyle = "white";
-                    ctx.fillText(body.label, body.position.x, body.position.y - 16);
-                }
-            });
-        });
-
-        let names = [];
-        let winCondition = 'first';
-        let isRunning = false;
-        let marblesCreated = false;
-        let savedNameInput = '';
-
-        db.ref(`rooms/${roomId}/config`).on('value', snap => {
-            const val = snap.val();
-            if (val && val.shouldSetup) {
-                document.getElementById('nameInput').value = val.names || "";
-                savedNameInput = val.names || "";
-                winCondition = val.winType || 'first';
-                parseNames(val.names);
-                setupMarbles();
-                db.ref(`rooms/${roomId}/config/shouldSetup`).set(null);
-            }
-        });
-
-        db.ref(`rooms/${roomId}/drop`).on('value', snap => { 
-            if (snap.val() && marblesCreated) startRace(); 
-        });
-
-        db.ref(`rooms/${roomId}/reset`).on('value', snap => {
-            if (snap.val()) {
-                performReset();
-                db.ref(`rooms/${roomId}/reset`).set(null);
-            }
-        });
-
-        function parseNames(str) {
-            names = [];
-            str.split(',').forEach(n => {
-                let part = n.trim();
-                if (part.includes('*')) {
-                    let [nm, count] = part.split('*');
-                    for (let i = 0; i < (parseInt(count) || 1); i++) names.push(nm.trim());
-                } else if (part) names.push(part);
-            });
-        }
-
-        function setupMarbles() {
-            if (isRunning) return;
-            
-            const balls = Composite.allBodies(engine.world).filter(b => !b.isStatic && b.label !== 'gate');
-            balls.forEach(b => Composite.remove(engine.world, b));
-            
-            document.getElementById('resultDisplay').style.display = 'none';
-
-            if (names.length === 0) {
-                alert('이름을 입력해주세요!');
-                document.getElementById('dropBtn').disabled = true;
-                marblesCreated = false;
-                return;
-            }
-            const existingGate = Composite.allBodies(engine.world).find(b => b.label === 'gate');
-            if (!existingGate) {
-                Composite.add(engine.world, gate);
-            }
-
-            names.forEach((name, i) => {
-                const ball = Bodies.circle(180 + (Math.random() * 40), 30, 9, {
-                    restitution: 0.5, 
-                    friction: 0.001, 
-                    frictionAir: 0.01,
-                    density: 0.001, 
-                    label: name,
-                    render: { fillStyle: `hsl(${Math.random() * 360}, 80%, 60%)` }
-                });
-                Composite.add(engine.world, ball);
-            });
-
-            marblesCreated = true;
-            document.getElementById('dropBtn').disabled = false;
-        }
-
-        function saveData() {
-            const inputValue = document.getElementById('nameInput').value.trim();
-            if (!inputValue) {
-                alert('이름을 입력해주세요!');
-                return;
-            }
-
-            savedNameInput = inputValue;
-            const config = { 
-                names: inputValue, 
-                winType: document.querySelector('input[name="winType"]:checked').value,
-                shouldSetup: true
-            };
-            db.ref(`rooms/${roomId}/config`).set(config);
-            db.ref(`rooms/${roomId}/drop`).set(null);
-        }
-
-        function triggerDrop() { 
-            if (marblesCreated) {
-                db.ref(`rooms/${roomId}/drop`).set(Date.now()); 
-            }
-        }
-
-        function resetGame() {
-            db.ref(`rooms/${roomId}/reset`).set(Date.now());
-        }
-
-        function performReset() {
-            const balls = Composite.allBodies(engine.world).filter(b => !b.isStatic && b.label !== 'gate');
-            balls.forEach(b => Composite.remove(engine.world, b));
-            
-            const existingGate = Composite.allBodies(engine.world).find(b => b.label === 'gate');
-            if (!existingGate) {
-                Composite.add(engine.world, gate);
-            }
-            
-            document.getElementById('resultDisplay').style.display = 'none';
-            isRunning = false;
-            marblesCreated = false;
-            
-            document.getElementById('dropBtn').disabled = true;
-            
-            db.ref(`rooms/${roomId}/drop`).set(null);
-        }
-
-        function startRace() {
-            if (isRunning || !marblesCreated) return;
-            isRunning = true;
-            
-            const gateBody = Composite.allBodies(engine.world).find(b => b.label === 'gate');
-            if (gateBody) {
-                Composite.remove(engine.world, gateBody);
-            }
-            
-            let finished = 0;
-            const total = names.length;
-
-            // 충돌 감지 이벤트 등록 (한 번만 실행되도록 이벤트 리스너 관리)
-            const collisionHandler = (event) => {
-                event.pairs.forEach((pair) => {
-                    const { bodyA, bodyB } = pair;
-                    
-                    // 두 물체 중 하나가 'boundary'(바닥)이고 다른 하나가 구슬일 때
-                    const ball = [bodyA, bodyB].find(b => !b.isStatic && b.label !== 'boundary' && b.label !== 'gate' && !b.isDone);
-                    const isFloor = [bodyA, bodyB].some(b => b.label === 'boundary' && b.position.y > 1500);
-
-                    if (ball && isFloor) {
-                        ball.isDone = true;
-                        finished++;
-
-                        // 당첨자 출력
-                        if (winCondition === 'first' && finished === 1) {
-                            showWinner(ball.label);
-                        } else if (winCondition === 'last' && finished === total) {
-                            showWinner(ball.label);
-                        }
-
-                        // 닿은 즉시 삭제
-                        Composite.remove(engine.world, ball);
-
-                        // 모든 구슬이 도착하면 이벤트 해제 및 상태 초기화
-                        if (finished === total) {
-                            Events.off(engine, 'collisionStart', collisionHandler);
-                            isRunning = false;
-                        }
-                    }
-                });
-            };
-
-            Events.on(engine, 'collisionStart', collisionHandler);
+            db.ref(`rooms/${roomId}/customMap`).set(data); alert('맵 저장 완료!');
         }
         
-        function showWinner(name) {
-            const res = document.getElementById('resultDisplay');
-            res.innerText = `🏆 당첨 🏆\n${name}`;
-            res.style.display = 'block';
+        function loadMap() {
+            db.ref(`rooms/${roomId}/customMap`).once('value', snap => {
+                const data = snap.val(); if (!data) return alert('맵 없음');
+                Composite.allBodies(engine.world).forEach(b => { if (b.label === 'custom' || b.label === 'default') Composite.remove(engine.world, b); });
+                spinners = [];
+                data.forEach(o => {
+                    let opt = { isStatic: true, angle: o.angle, label: o.label, render: { fillStyle: o.color }, myInternalData: { w: o.width, h: o.height } };
+                    let body = o.type==='pin' ? Bodies.circle(o.x, o.y, o.radius, opt) : Bodies.rectangle(o.x, o.y, o.width, o.height, opt);
+                    if (o.type==='spinner') spinners.push({ body, speed: o.speed });
+                    Composite.add(engine.world, body);
+                });
+                alert('맵 로드 완료!');
+            });
         }
-
-
-        // 1. 페이지 로드 시 현재 방 번호 표시
-        document.getElementById('currentRoomDisplay').textContent = roomId;
-
-// 2. 특정 방 번호로 이동하는 함수
-        function changeRoom() {
-            const newRoom = document.getElementById('roomInput').value.trim();
-            if (newRoom) {
-        // URL의 room 파라미터를 변경하고 새로고침
-                window.location.href = `?room=${newRoom}`;
-            } else {
-                alert("이동할 방 번호를 입력해주세요.");
-            }
-        }
-
-// 3. 완전히 새로운 랜덤 방 생성 함수
-        function randomRoom() {
-            const newId = Math.random().toString(36).substring(2, 7);
-            window.location.href = `?room=${newId}`;
-        }
-
-// 엔터 키 입력 시 이동 가능하게 설정
-        document.getElementById('roomInput').addEventListener('keypress', function (e) {
-            if (e.key === 'Enter') changeRoom();
-        });
+        
+        function changeRoom() { const v = document.getElementById('roomInput').value.trim(); if(v) window.location.href=`?room=${v}`; }
+        function randomRoom() { window.location.href=`?room=${Math.random().toString(36).substring(2,7)}`; }
+        window.addEventListener('keydown', (e) => { if (e.ctrlKey && e.key === 'z') undo(); });
+        
+        initGame();
     </script>
 </body>
 </html>
